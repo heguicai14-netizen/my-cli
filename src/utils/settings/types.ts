@@ -314,6 +314,14 @@ export const SettingsSchema = lazySchema(() =>
           'Default model ID to send in API requests (e.g. "claude-sonnet-4-6", ' +
             '"gpt-4.1"). Overrideable per-session via --model.',
         ),
+      headers: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe(
+          'Extra HTTP headers to attach to every API request. Merged with ' +
+            'request-level headers — settings.headers take precedence over ' +
+            'ANTHROPIC_CUSTOM_HEADERS when the same key is set.',
+        ),
       awsCredentialExport: z
         .string()
         .optional()

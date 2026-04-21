@@ -30,6 +30,7 @@ import {
 } from '../../bootstrap/state.js'
 import { getOauthConfig } from '../../constants/oauth.js'
 import { isDebugToStdErr, logForDebugging } from '../../utils/debug.js'
+import { getSettings_DEPRECATED } from '../../utils/settings/settings.js'
 import {
   getAWSRegion,
   getVertexRegionForModel,
@@ -376,23 +377,29 @@ async function configureApiKeyHeaders(
 
 function getCustomHeaders(): Record<string, string> {
   const customHeaders: Record<string, string> = {}
+
+  // Legacy env-var source, still read as a fallback for CI/container flows.
   const customHeadersEnv = process.env.ANTHROPIC_CUSTOM_HEADERS
+  if (customHeadersEnv) {
+    for (const headerString of customHeadersEnv.split(/\n|\r\n/)) {
+      if (!headerString.trim()) continue
 
-  if (!customHeadersEnv) return customHeaders
+      // Parse header in format "Name: Value" (curl style). Split on first `:`
+      // then trim — avoids regex backtracking on malformed long header lines.
+      const colonIdx = headerString.indexOf(':')
+      if (colonIdx === -1) continue
+      const name = headerString.slice(0, colonIdx).trim()
+      const value = headerString.slice(colonIdx + 1).trim()
+      if (name) {
+        customHeaders[name] = value
+      }
+    }
+  }
 
-  // Split by newlines to support multiple headers
-  const headerStrings = customHeadersEnv.split(/\n|\r\n/)
-
-  for (const headerString of headerStrings) {
-    if (!headerString.trim()) continue
-
-    // Parse header in format "Name: Value" (curl style). Split on first `:`
-    // then trim — avoids regex backtracking on malformed long header lines.
-    const colonIdx = headerString.indexOf(':')
-    if (colonIdx === -1) continue
-    const name = headerString.slice(0, colonIdx).trim()
-    const value = headerString.slice(colonIdx + 1).trim()
-    if (name) {
+  // settings.json `headers` wins on key conflicts.
+  const settingsHeaders = getSettings_DEPRECATED()?.headers
+  if (settingsHeaders) {
+    for (const [name, value] of Object.entries(settingsHeaders)) {
       customHeaders[name] = value
     }
   }
