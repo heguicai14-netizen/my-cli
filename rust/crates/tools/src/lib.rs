@@ -3250,7 +3250,7 @@ fn skill_lookup_roots() -> Vec<SkillLookupRoot> {
         push_project_skill_lookup_roots(&mut roots, &cwd);
     }
 
-    if let Ok(claw_config_home) = std::env::var("CLAW_CONFIG_HOME") {
+    if let Ok(claw_config_home) = std::env::var("MYCLI_CONFIG_HOME") {
         push_prefixed_skill_lookup_roots(&mut roots, std::path::Path::new(&claw_config_home));
     }
     if let Ok(codex_home) = std::env::var("CODEX_HOME") {
@@ -5736,7 +5736,7 @@ fn config_file_for_scope(scope: ConfigScope) -> Result<PathBuf, String> {
 }
 
 fn config_home_dir() -> Result<PathBuf, String> {
-    if let Ok(path) = std::env::var("CLAW_CONFIG_HOME") {
+    if let Ok(path) = std::env::var("MYCLI_CONFIG_HOME") {
         return Ok(PathBuf::from(path));
     }
     let home = std::env::var("HOME")
@@ -5744,7 +5744,7 @@ fn config_home_dir() -> Result<PathBuf, String> {
         .map_err(|_| {
             String::from(
                 "HOME is not set (on Windows, set USERPROFILE or HOME, \
-                 or use CLAW_CONFIG_HOME to point directly at the config directory)",
+                 or use MYCLI_CONFIG_HOME to point directly at the config directory)",
             )
         })?;
     Ok(PathBuf::from(home).join(".mycli"))
@@ -7401,11 +7401,11 @@ mod tests {
         .expect("skill file should exist");
 
         let original_home = std::env::var("HOME").ok();
-        let original_config_home = std::env::var("CLAW_CONFIG_HOME").ok();
+        let original_config_home = std::env::var("MYCLI_CONFIG_HOME").ok();
         let original_codex_home = std::env::var("CODEX_HOME").ok();
         let original_dir = std::env::current_dir().expect("cwd");
         std::env::set_var("HOME", &home);
-        std::env::remove_var("CLAW_CONFIG_HOME");
+        std::env::remove_var("MYCLI_CONFIG_HOME");
         std::env::remove_var("CODEX_HOME");
         std::env::set_current_dir(&nested).expect("set cwd");
 
@@ -7425,8 +7425,8 @@ mod tests {
             None => std::env::remove_var("HOME"),
         }
         match original_config_home {
-            Some(value) => std::env::set_var("CLAW_CONFIG_HOME", value),
-            None => std::env::remove_var("CLAW_CONFIG_HOME"),
+            Some(value) => std::env::set_var("MYCLI_CONFIG_HOME", value),
+            None => std::env::remove_var("MYCLI_CONFIG_HOME"),
         }
         match original_codex_home {
             Some(value) => std::env::set_var("CODEX_HOME", value),
@@ -7459,11 +7459,11 @@ mod tests {
         .expect("agents skill file should exist");
 
         let original_home = std::env::var("HOME").ok();
-        let original_config_home = std::env::var("CLAW_CONFIG_HOME").ok();
+        let original_config_home = std::env::var("MYCLI_CONFIG_HOME").ok();
         let original_codex_home = std::env::var("CODEX_HOME").ok();
         let original_dir = std::env::current_dir().expect("cwd");
         std::env::set_var("HOME", &home);
-        std::env::remove_var("CLAW_CONFIG_HOME");
+        std::env::remove_var("MYCLI_CONFIG_HOME");
         std::env::remove_var("CODEX_HOME");
         std::env::set_current_dir(&nested).expect("set cwd");
 
@@ -7495,8 +7495,8 @@ mod tests {
             None => std::env::remove_var("HOME"),
         }
         match original_config_home {
-            Some(value) => std::env::set_var("CLAW_CONFIG_HOME", value),
-            None => std::env::remove_var("CLAW_CONFIG_HOME"),
+            Some(value) => std::env::set_var("MYCLI_CONFIG_HOME", value),
+            None => std::env::remove_var("MYCLI_CONFIG_HOME"),
         }
         match original_codex_home {
             Some(value) => std::env::set_var("CODEX_HOME", value),
@@ -7523,11 +7523,11 @@ mod tests {
         .expect("learned skill file should exist");
 
         let original_home = std::env::var("HOME").ok();
-        let original_config_home = std::env::var("CLAW_CONFIG_HOME").ok();
+        let original_config_home = std::env::var("MYCLI_CONFIG_HOME").ok();
         let original_codex_home = std::env::var("CODEX_HOME").ok();
         let original_claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok();
         std::env::set_var("HOME", &home);
-        std::env::remove_var("CLAW_CONFIG_HOME");
+        std::env::remove_var("MYCLI_CONFIG_HOME");
         std::env::remove_var("CODEX_HOME");
         std::env::set_var("CLAUDE_CONFIG_DIR", &claude_config_dir);
 
@@ -7546,8 +7546,8 @@ mod tests {
             None => std::env::remove_var("HOME"),
         }
         match original_config_home {
-            Some(value) => std::env::set_var("CLAW_CONFIG_HOME", value),
-            None => std::env::remove_var("CLAW_CONFIG_HOME"),
+            Some(value) => std::env::set_var("MYCLI_CONFIG_HOME", value),
+            None => std::env::remove_var("MYCLI_CONFIG_HOME"),
         }
         match original_codex_home {
             Some(value) => std::env::set_var("CODEX_HOME", value),
@@ -7582,11 +7582,11 @@ mod tests {
         .expect("direct command file should exist");
 
         let original_home = std::env::var("HOME").ok();
-        let original_config_home = std::env::var("CLAW_CONFIG_HOME").ok();
+        let original_config_home = std::env::var("MYCLI_CONFIG_HOME").ok();
         let original_codex_home = std::env::var("CODEX_HOME").ok();
         let original_claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok();
         std::env::set_var("HOME", &home);
-        std::env::remove_var("CLAW_CONFIG_HOME");
+        std::env::remove_var("MYCLI_CONFIG_HOME");
         std::env::remove_var("CODEX_HOME");
         std::env::set_var("CLAUDE_CONFIG_DIR", &claude_config_dir);
 
@@ -7618,8 +7618,8 @@ mod tests {
             None => std::env::remove_var("HOME"),
         }
         match original_config_home {
-            Some(value) => std::env::set_var("CLAW_CONFIG_HOME", value),
-            None => std::env::remove_var("CLAW_CONFIG_HOME"),
+            Some(value) => std::env::set_var("MYCLI_CONFIG_HOME", value),
+            None => std::env::remove_var("MYCLI_CONFIG_HOME"),
         }
         match original_codex_home {
             Some(value) => std::env::set_var("CODEX_HOME", value),
@@ -7649,11 +7649,11 @@ mod tests {
         .expect("legacy command file should exist");
 
         let original_home = std::env::var("HOME").ok();
-        let original_config_home = std::env::var("CLAW_CONFIG_HOME").ok();
+        let original_config_home = std::env::var("MYCLI_CONFIG_HOME").ok();
         let original_codex_home = std::env::var("CODEX_HOME").ok();
         let original_dir = std::env::current_dir().expect("cwd");
         std::env::set_var("HOME", &home);
-        std::env::remove_var("CLAW_CONFIG_HOME");
+        std::env::remove_var("MYCLI_CONFIG_HOME");
         std::env::remove_var("CODEX_HOME");
         std::env::set_current_dir(&nested).expect("set cwd");
 
@@ -7673,8 +7673,8 @@ mod tests {
             None => std::env::remove_var("HOME"),
         }
         match original_config_home {
-            Some(value) => std::env::set_var("CLAW_CONFIG_HOME", value),
-            None => std::env::remove_var("CLAW_CONFIG_HOME"),
+            Some(value) => std::env::set_var("MYCLI_CONFIG_HOME", value),
+            None => std::env::remove_var("MYCLI_CONFIG_HOME"),
         }
         match original_codex_home {
             Some(value) => std::env::set_var("CODEX_HOME", value),
@@ -8993,10 +8993,10 @@ mod tests {
         .expect("write global settings");
 
         let original_home = std::env::var("HOME").ok();
-        let original_config_home = std::env::var("CLAW_CONFIG_HOME").ok();
+        let original_config_home = std::env::var("MYCLI_CONFIG_HOME").ok();
         let original_dir = std::env::current_dir().expect("cwd");
         std::env::set_var("HOME", &home);
-        std::env::remove_var("CLAW_CONFIG_HOME");
+        std::env::remove_var("MYCLI_CONFIG_HOME");
         std::env::set_current_dir(&cwd).expect("set cwd");
 
         let get = execute_tool("Config", &json!({"setting": "verbose"})).expect("get config");
@@ -9030,8 +9030,8 @@ mod tests {
             None => std::env::remove_var("HOME"),
         }
         match original_config_home {
-            Some(value) => std::env::set_var("CLAW_CONFIG_HOME", value),
-            None => std::env::remove_var("CLAW_CONFIG_HOME"),
+            Some(value) => std::env::set_var("MYCLI_CONFIG_HOME", value),
+            None => std::env::remove_var("MYCLI_CONFIG_HOME"),
         }
         let _ = std::fs::remove_dir_all(root);
     }
@@ -9059,10 +9059,10 @@ mod tests {
         .expect("write local settings");
 
         let original_home = std::env::var("HOME").ok();
-        let original_config_home = std::env::var("CLAW_CONFIG_HOME").ok();
+        let original_config_home = std::env::var("MYCLI_CONFIG_HOME").ok();
         let original_dir = std::env::current_dir().expect("cwd");
         std::env::set_var("HOME", &home);
-        std::env::remove_var("CLAW_CONFIG_HOME");
+        std::env::remove_var("MYCLI_CONFIG_HOME");
         std::env::set_current_dir(&cwd).expect("set cwd");
 
         let enter = execute_tool("EnterPlanMode", &json!({})).expect("enter plan mode");
@@ -9105,8 +9105,8 @@ mod tests {
             None => std::env::remove_var("HOME"),
         }
         match original_config_home {
-            Some(value) => std::env::set_var("CLAW_CONFIG_HOME", value),
-            None => std::env::remove_var("CLAW_CONFIG_HOME"),
+            Some(value) => std::env::set_var("MYCLI_CONFIG_HOME", value),
+            None => std::env::remove_var("MYCLI_CONFIG_HOME"),
         }
         let _ = std::fs::remove_dir_all(root);
     }
@@ -9129,10 +9129,10 @@ mod tests {
         std::fs::create_dir_all(cwd.join(".mycli")).expect("cwd dir");
 
         let original_home = std::env::var("HOME").ok();
-        let original_config_home = std::env::var("CLAW_CONFIG_HOME").ok();
+        let original_config_home = std::env::var("MYCLI_CONFIG_HOME").ok();
         let original_dir = std::env::current_dir().expect("cwd");
         std::env::set_var("HOME", &home);
-        std::env::remove_var("CLAW_CONFIG_HOME");
+        std::env::remove_var("MYCLI_CONFIG_HOME");
         std::env::set_current_dir(&cwd).expect("set cwd");
 
         let enter = execute_tool("EnterPlanMode", &json!({})).expect("enter plan mode");
@@ -9167,8 +9167,8 @@ mod tests {
             None => std::env::remove_var("HOME"),
         }
         match original_config_home {
-            Some(value) => std::env::set_var("CLAW_CONFIG_HOME", value),
-            None => std::env::remove_var("CLAW_CONFIG_HOME"),
+            Some(value) => std::env::set_var("MYCLI_CONFIG_HOME", value),
+            None => std::env::remove_var("MYCLI_CONFIG_HOME"),
         }
         let _ = std::fs::remove_dir_all(root);
     }

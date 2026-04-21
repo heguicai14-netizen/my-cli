@@ -1,4 +1,4 @@
-# Claw Code
+# My CLI
 
 <p align="center">
   <a href="https://github.com/ultraworkers/claw-code">ultraworkers/claw-code</a>
@@ -25,20 +25,20 @@
 </p>
 
 <p align="center">
-  <img src="assets/claw-hero.jpeg" alt="Claw Code" width="300" />
+  <img src="assets/claw-hero.jpeg" alt="My CLI" width="300" />
 </p>
 
-Claw Code is the public Rust implementation of the `claw` CLI agent harness.
+My CLI is the public Rust implementation of the `my-cli` CLI agent harness.
 The canonical implementation lives in [`rust/`](./rust), and the current source of truth for this repository is **ultraworkers/claw-code**.
 
 > [!IMPORTANT]
 > Start with [`USAGE.md`](./USAGE.md) for build, auth, CLI, session, and parity-harness workflows. Make `claw doctor` your first health check after building, use [`rust/README.md`](./rust/README.md) for crate-level details, read [`PARITY.md`](./PARITY.md) for the current Rust-port checkpoint, and see [`docs/container.md`](./docs/container.md) for the container-first workflow.
 >
-> **ACP / Zed status:** `claw-code` does not ship an ACP/Zed daemon entrypoint yet. Run `claw acp` (or `claw --acp`) for the current status instead of guessing from source layout; `claw acp serve` is currently a discoverability alias only, and real ACP support remains tracked separately in `ROADMAP.md`.
+> **ACP / Zed status:** `claw-code` does not ship an ACP/Zed daemon entrypoint yet. Run `my-cli acp` (or `claw --acp`) for the current status instead of guessing from source layout; `my-cli acp serve` is currently a discoverability alias only, and real ACP support remains tracked separately in `ROADMAP.md`.
 
 ## Current repository shape
 
-- **`rust/`** — canonical Rust workspace and the `claw` CLI binary
+- **`rust/`** — canonical Rust workspace and the `my-cli` CLI binary
 - **`USAGE.md`** — task-oriented usage guide for the current product surface
 - **`PARITY.md`** — Rust-port parity status and migration notes
 - **`ROADMAP.md`** — active roadmap and cleanup backlog
@@ -49,7 +49,7 @@ The canonical implementation lives in [`rust/`](./rust), and the current source 
 
 > [!NOTE]
 > [!WARNING]
-> **`cargo install claw-code` installs the wrong thing.** The `claw-code` crate on crates.io is a deprecated stub that places `claw-code-deprecated.exe` — not `claw`. Running it only prints `"claw-code has been renamed to agent-code"`. **Do not use `cargo install claw-code`.** Either build from source (this repo) or install the upstream binary:
+> **`cargo install claw-code` installs the wrong thing.** The `claw-code` crate on crates.io is a deprecated stub that places `claw-code-deprecated.exe` — not `my-cli`. Running it only prints `"claw-code has been renamed to agent-code"`. **Do not use `cargo install claw-code`.** Either build from source (this repo) or install the upstream binary:
 > ```bash
 > cargo install agent-code   # upstream binary — installs 'agent.exe' (Windows) / 'agent' (Unix), NOT 'agent-code'
 > ```
@@ -65,14 +65,14 @@ cargo build --workspace
 export ANTHROPIC_API_KEY="sk-ant-..."
 
 # 3. Verify everything is wired correctly
-./target/debug/claw doctor
+./target/debug/my-cli doctor
 
 # 4. Run a prompt
-./target/debug/claw prompt "say hello"
+./target/debug/my-cli prompt "say hello"
 ```
 
 > [!NOTE]
-> **Windows (PowerShell):** the binary is `claw.exe`, not `claw`. Use `.\target\debug\claw.exe` or run `cargo run -- prompt "say hello"` to skip the path lookup.
+> **Windows (PowerShell):** the binary is `claw.exe`, not `my-cli`. Use `.\target\debug\claw.exe` or run `cargo run -- prompt "say hello"` to skip the path lookup.
 
 ### Windows setup
 
@@ -119,7 +119,7 @@ cargo test --workspace
 
 ## Ecosystem
 
-Claw Code is built in the open alongside the broader UltraWorkers toolchain:
+My CLI is built in the open alongside the broader UltraWorkers toolchain:
 
 - [clawhip](https://github.com/Yeachan-Heo/clawhip)
 - [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent)
