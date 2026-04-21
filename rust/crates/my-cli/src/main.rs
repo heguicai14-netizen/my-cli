@@ -180,6 +180,12 @@ fn merge_prompt_with_stdin(prompt: &str, stdin_content: Option<&str>) -> String 
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    // Apply any `env` entries from settings.json to the process environment
+    // before the CLI dispatches any work — provider clients and tools read
+    // env vars directly (OPENAI_API_KEY, OPENAI_BASE_URL, XAI_API_KEY, etc.),
+    // and this is what lets users configure non-Anthropic providers from
+    // settings.json without touching their shell.
+    apply_settings_env_vars();
     let args: Vec<String> = env::args().skip(1).collect();
     match parse_args(&args)? {
         CliAction::DumpManifests {
@@ -6853,6 +6859,24 @@ fn load_anthropic_credentials_from_config() -> api::AnthropicConfigCredentials {
         credentials.api_key().map(str::to_string),
         credentials.auth_token().map(str::to_string),
     )
+}
+
+/// Load `.mycli/settings.json` (user + project scope) and project every
+/// string entry under the top-level `env` object into the process
+/// environment. This is the single knob that lets users put
+/// `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `XAI_API_KEY`, `DASHSCOPE_API_KEY`,
+/// `ANTHROPIC_BASE_URL`, etc. directly in settings.json and have every
+/// downstream provider client pick them up transparently.
+///
+/// Failures are swallowed — `run()` should proceed even if config can't be
+/// read, so that subcommands that don't need credentials (`--help`,
+/// `version`, `doctor`, etc.) keep working.
+fn apply_settings_env_vars() {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let Ok(runtime_config) = runtime::ConfigLoader::default_for(cwd).load() else {
+        return;
+    };
+    let _ = runtime_config.apply_env_vars();
 }
 
 impl ApiClient for AnthropicRuntimeClient {

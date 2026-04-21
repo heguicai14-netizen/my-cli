@@ -104,33 +104,39 @@ Model aliases currently supported by the CLI:
 
 ## Authentication
 
-Anthropic credentials are read **only** from `.mycli/settings.json`. `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` environment variables are no longer read.
+Every credential — Anthropic and otherwise — lives in `.mycli/settings.json`. No env var exports needed.
 
-### Config file (`.mycli/settings.json`)
+### Anthropic (first-class `anthropic` block)
 
 ```json
 {
   "anthropic": {
-    "apiKey": "sk-ant-...",
-    "authToken": "bearer-token"
+    "apiKey": "sk-ant-..."
   }
 }
 ```
-
-User-level config at `~/.mycli/settings.json` is merged first, then the project-level file at `<repo>/.mycli/settings.json` overrides it.
-
-### Which slot goes where
-
-`my-cli` accepts two Anthropic credential slots and they are **not interchangeable** — the HTTP header Anthropic expects differs per credential shape. Putting the wrong value in the wrong slot is the most common 401 we see.
 
 | Credential shape | Config key | HTTP header | Typical source |
 |---|---|---|---|
 | `sk-ant-*` API key | `anthropic.apiKey` | `x-api-key: sk-ant-...` | [console.anthropic.com](https://console.anthropic.com) |
 | OAuth access token (opaque) | `anthropic.authToken` | `Authorization: Bearer ...` | an Anthropic-compatible proxy or OAuth flow that mints bearer tokens |
 
-**Why this matters:** if you paste an `sk-ant-*` key into `authToken`, Anthropic's API will return `401 Invalid bearer token` because `sk-ant-*` keys are rejected over the Bearer header. The fix is to move the key to `apiKey` in `settings.json`.
+Putting an `sk-ant-*` key in `authToken` yields `401 Invalid bearer token` (wrong header). Move it to `apiKey`.
 
-**Non-Anthropic providers still use env vars.** OpenAI-compatible (OpenRouter, Ollama, DashScope) and xAI providers keep their existing env var auth: `OPENAI_API_KEY` + `OPENAI_BASE_URL`, `XAI_API_KEY`, `DASHSCOPE_API_KEY`. Only Anthropic credentials moved to the config file.
+### Non-Anthropic providers — use the `env` block
+
+At startup, every string under `env` is projected into the process environment before any provider client reads credentials. That covers OpenAI, OpenRouter, Ollama, xAI, DashScope, proxies — anything that reads env vars.
+
+| Provider | Model name looks like | Settings |
+|---|---|---|
+| OpenAI | `gpt-4.1`, `openai/gpt-4o-mini` | `env.OPENAI_API_KEY` |
+| OpenRouter | `openai/gpt-4.1-mini`, `anthropic/claude-*` | `env.OPENAI_API_KEY` + `env.OPENAI_BASE_URL=https://openrouter.ai/api/v1` |
+| Ollama (local) | `llama3.2`, `qwen2.5-coder` | `env.OPENAI_BASE_URL=http://127.0.0.1:11434/v1` (no key needed) |
+| xAI Grok | `grok-3`, `grok-3-mini` | `env.XAI_API_KEY` |
+| Alibaba DashScope | `qwen-plus`, `qwen/qwen-max` | `env.DASHSCOPE_API_KEY` |
+| Anthropic proxy | any Anthropic model | `anthropic.authToken` + `env.ANTHROPIC_BASE_URL` |
+
+User-level config at `~/.mycli/settings.json` is merged first, then project-level `<repo>/.mycli/settings.json` overrides it.
 
 ## Local Models
 

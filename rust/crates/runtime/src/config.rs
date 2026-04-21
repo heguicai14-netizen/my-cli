@@ -430,6 +430,29 @@ impl RuntimeConfig {
     pub fn anthropic_credentials(&self) -> &AnthropicCredentialsConfig {
         &self.feature_config.anthropic_credentials
     }
+
+    /// Apply every string entry under the top-level `env` object to the process
+    /// environment via `std::env::set_var`. Non-string values are skipped
+    /// silently. Returns the list of keys that were set.
+    ///
+    /// Intended to be called once at CLI startup, before any provider client
+    /// that reads env vars (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `XAI_API_KEY`,
+    /// etc.) is constructed. Config values take precedence over whatever the
+    /// shell already exported.
+    pub fn apply_env_vars(&self) -> Vec<String> {
+        let Some(env_object) = self.merged.get("env").and_then(JsonValue::as_object) else {
+            return Vec::new();
+        };
+        let mut applied = Vec::with_capacity(env_object.len());
+        for (key, value) in env_object {
+            let Some(raw) = value.as_str() else {
+                continue;
+            };
+            std::env::set_var(key, raw);
+            applied.push(key.clone());
+        }
+        applied
+    }
 }
 
 impl RuntimeFeatureConfig {
@@ -1531,6 +1554,64 @@ mod tests {
         assert!(creds.is_empty());
         assert_eq!(creds.api_key(), None);
         assert_eq!(creds.auth_token(), None);
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn apply_env_vars_projects_string_entries_into_process_environment() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        // Use key names unique enough to avoid colliding with real process env.
+        let key_a = format!("MYCLI_APPLY_ENV_TEST_A_{}", std::process::id());
+        let key_b = format!("MYCLI_APPLY_ENV_TEST_B_{}", std::process::id());
+        let key_c = format!("MYCLI_APPLY_ENV_TEST_SKIPPED_{}", std::process::id());
+        let body = format!(
+            r#"{{"env":{{"{key_a}":"value-a","{key_b}":"value-b","{key_c}":123}}}}"#
+        );
+        fs::write(home.join("settings.json"), &body).expect("write settings");
+
+        std::env::remove_var(&key_a);
+        std::env::remove_var(&key_b);
+        std::env::remove_var(&key_c);
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+        let applied = loaded.apply_env_vars();
+
+        assert!(applied.contains(&key_a));
+        assert!(applied.contains(&key_b));
+        assert!(
+            !applied.contains(&key_c),
+            "non-string values should be skipped"
+        );
+        assert_eq!(std::env::var(&key_a).as_deref(), Ok("value-a"));
+        assert_eq!(std::env::var(&key_b).as_deref(), Ok("value-b"));
+        assert!(std::env::var(&key_c).is_err());
+
+        std::env::remove_var(&key_a);
+        std::env::remove_var(&key_b);
+        std::env::remove_var(&key_c);
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn apply_env_vars_is_noop_when_env_object_missing() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(home.join("settings.json"), r#"{"model":"sonnet"}"#).expect("write settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+        assert!(loaded.apply_env_vars().is_empty());
 
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }

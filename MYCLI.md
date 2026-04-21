@@ -41,26 +41,76 @@ cargo test --workspace
 ./target/debug/my-cli --output-format json prompt "status"
 ```
 
-## Authentication
+## Configuration
 
-Credentials are loaded **only** from `.mycli/settings.json`. Environment variables (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`) are no longer read.
+Everything — credentials, provider routing, base URLs — goes in `.mycli/settings.json`. Nothing needs to be `export`ed to the shell.
 
-Put at least one of `apiKey` / `authToken` in `~/.mycli/settings.json`:
+### Anthropic (first-class)
 
 ```json
 {
   "anthropic": {
-    "apiKey": "sk-ant-...",
-    "authToken": "bearer-token"
+    "apiKey": "sk-ant-..."
   }
 }
 ```
 
-Startup fails when both are absent.
+`sk-ant-*` keys go in `apiKey`; OAuth bearer tokens go in `authToken`. Startup fails only when **both** are absent and the selected model is Anthropic.
 
-**Common auth mistake:** `sk-ant-*` keys go in `apiKey`, not `authToken`. The bearer slot expects OAuth tokens and uses a different HTTP header.
+### Any other provider — use the `env` block
 
-`ANTHROPIC_BASE_URL` is still honored for pointing at a proxy / self-hosted endpoint — it's not a credential, so it stays as an env var.
+At startup, every string entry under `env` is projected into the process environment before provider clients initialize. That's the knob for OpenAI, OpenRouter, Ollama, xAI, DashScope, proxies, anything. Examples:
+
+**OpenRouter (via OpenAI-compat protocol):**
+```json
+{
+  "model": "openai/gpt-4.1-mini",
+  "env": {
+    "OPENAI_API_KEY": "sk-or-v1-...",
+    "OPENAI_BASE_URL": "https://openrouter.ai/api/v1"
+  }
+}
+```
+
+**Local Ollama (no key):**
+```json
+{
+  "model": "llama3.2",
+  "env": {
+    "OPENAI_BASE_URL": "http://127.0.0.1:11434/v1"
+  }
+}
+```
+
+**xAI Grok:**
+```json
+{
+  "model": "grok-3",
+  "env": {
+    "XAI_API_KEY": "xai-..."
+  }
+}
+```
+
+**Alibaba DashScope (Qwen):**
+```json
+{
+  "model": "qwen-plus",
+  "env": {
+    "DASHSCOPE_API_KEY": "sk-..."
+  }
+}
+```
+
+**Corporate proxy in front of Anthropic:**
+```json
+{
+  "anthropic": {"authToken": "proxy-bearer-..."},
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://your-proxy.corp/v1"
+  }
+}
+```
 
 ## Architecture
 
