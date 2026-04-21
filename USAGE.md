@@ -104,7 +104,7 @@ Model aliases currently supported by the CLI:
 
 ## Authentication
 
-Credentials can be provided via the config file or environment variables. Env vars win when set; otherwise the config file supplies the value.
+Anthropic credentials are read **only** from `.mycli/settings.json`. `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` environment variables are no longer read.
 
 ### Config file (`.mycli/settings.json`)
 
@@ -119,32 +119,18 @@ Credentials can be provided via the config file or environment variables. Env va
 
 User-level config at `~/.mycli/settings.json` is merged first, then the project-level file at `<repo>/.mycli/settings.json` overrides it.
 
-### API key via environment
-
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-### OAuth via environment
-
-```bash
-cd rust
-export ANTHROPIC_AUTH_TOKEN="anthropic-oauth-or-proxy-bearer-token"
-```
-
 ### Which slot goes where
 
 `my-cli` accepts two Anthropic credential slots and they are **not interchangeable** — the HTTP header Anthropic expects differs per credential shape. Putting the wrong value in the wrong slot is the most common 401 we see.
 
-| Credential shape | Config key | Env var | HTTP header | Typical source |
-|---|---|---|---|---|
-| `sk-ant-*` API key | `anthropic.apiKey` | `ANTHROPIC_API_KEY` | `x-api-key: sk-ant-...` | [console.anthropic.com](https://console.anthropic.com) |
-| OAuth access token (opaque) | `anthropic.authToken` | `ANTHROPIC_AUTH_TOKEN` | `Authorization: Bearer ...` | an Anthropic-compatible proxy or OAuth flow that mints bearer tokens |
-| OpenRouter key (`sk-or-v1-*`) | — | `OPENAI_API_KEY` + `OPENAI_BASE_URL=https://openrouter.ai/api/v1` | `Authorization: Bearer ...` | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| Credential shape | Config key | HTTP header | Typical source |
+|---|---|---|---|
+| `sk-ant-*` API key | `anthropic.apiKey` | `x-api-key: sk-ant-...` | [console.anthropic.com](https://console.anthropic.com) |
+| OAuth access token (opaque) | `anthropic.authToken` | `Authorization: Bearer ...` | an Anthropic-compatible proxy or OAuth flow that mints bearer tokens |
 
-**Why this matters:** if you paste an `sk-ant-*` key into `ANTHROPIC_AUTH_TOKEN`, Anthropic's API will return `401 Invalid bearer token` because `sk-ant-*` keys are rejected over the Bearer header. The fix is a one-line env var swap — move the key to `ANTHROPIC_API_KEY`. Recent `my-cli` builds detect this exact shape (401 + `sk-ant-*` in the Bearer slot) and append a hint to the error message pointing at the fix.
+**Why this matters:** if you paste an `sk-ant-*` key into `authToken`, Anthropic's API will return `401 Invalid bearer token` because `sk-ant-*` keys are rejected over the Bearer header. The fix is to move the key to `apiKey` in `settings.json`.
 
-**If you meant a different provider:** if `my-cli` reports missing Anthropic credentials but you already have `OPENAI_API_KEY`, `XAI_API_KEY`, or `DASHSCOPE_API_KEY` exported, you most likely forgot to prefix the model name with the provider's routing prefix. Use `--model openai/gpt-4.1-mini` (OpenAI-compat / OpenRouter / Ollama), `--model grok` (xAI), or `--model qwen-plus` (DashScope) and the prefix router will select the right backend regardless of the ambient credentials. The error message now includes a hint that names the detected env var.
+**Non-Anthropic providers still use env vars.** OpenAI-compatible (OpenRouter, Ollama, DashScope) and xAI providers keep their existing env var auth: `OPENAI_API_KEY` + `OPENAI_BASE_URL`, `XAI_API_KEY`, `DASHSCOPE_API_KEY`. Only Anthropic credentials moved to the config file.
 
 ## Local Models
 

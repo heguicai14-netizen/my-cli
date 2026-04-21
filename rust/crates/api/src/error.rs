@@ -249,12 +249,19 @@ impl Display for ApiError {
                 env_vars,
                 hint,
             } => {
-                write!(
-                    f,
-                    "missing {provider} credentials; export {} before calling the {provider} API",
-                    env_vars.join(" or ")
-                )?;
-                if cfg!(target_os = "windows") {
+                if *provider == "Anthropic" {
+                    write!(
+                        f,
+                        "missing {provider} credentials; set `anthropic.apiKey` or `anthropic.authToken` in ~/.mycli/settings.json or <repo>/.mycli/settings.json before calling the {provider} API"
+                    )?;
+                } else {
+                    write!(
+                        f,
+                        "missing {provider} credentials; export {} before calling the {provider} API",
+                        env_vars.join(" or ")
+                    )?;
+                }
+                if cfg!(target_os = "windows") && *provider != "Anthropic" {
                     if let Some(primary) = env_vars.first() {
                         write!(
                             f,
@@ -556,7 +563,7 @@ mod tests {
         // then
         assert!(
             rendered.starts_with(
-                "missing Anthropic credentials; export ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY before calling the Anthropic API"
+                "missing Anthropic credentials; set `anthropic.apiKey` or `anthropic.authToken` in ~/.mycli/settings.json"
             ),
             "rendered error should lead with the canonical missing-credential message: {rendered}"
         );

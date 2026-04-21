@@ -43,9 +43,9 @@ cargo test --workspace
 
 ## Authentication
 
-Credentials can be provided via **config file** (preferred) or **environment variables** (overrides config when set).
+Credentials are loaded **only** from `.mycli/settings.json`. Environment variables (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`) are no longer read.
 
-**Option A — `.mycli/settings.json`:**
+Put at least one of `apiKey` / `authToken` in `~/.mycli/settings.json`:
 
 ```json
 {
@@ -56,17 +56,11 @@ Credentials can be provided via **config file** (preferred) or **environment var
 }
 ```
 
-**Option B — environment variables:**
+Startup fails when both are absent.
 
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."        # from console.anthropic.com
-export ANTHROPIC_AUTH_TOKEN="bearer-token"   # OAuth / proxy bearer
-export ANTHROPIC_BASE_URL="https://your-proxy.com"  # optional
-```
+**Common auth mistake:** `sk-ant-*` keys go in `apiKey`, not `authToken`. The bearer slot expects OAuth tokens and uses a different HTTP header.
 
-Resolution order: `ANTHROPIC_API_KEY` env → `anthropic.apiKey` config → `ANTHROPIC_AUTH_TOKEN` env → `anthropic.authToken` config. Startup fails only when every source is empty.
-
-**Common auth mistake:** `sk-ant-*` keys go in `apiKey` / `ANTHROPIC_API_KEY`, not `authToken` / `ANTHROPIC_AUTH_TOKEN`. The bearer slot expects OAuth tokens and uses a different HTTP header.
+`ANTHROPIC_BASE_URL` is still honored for pointing at a proxy / self-hosted endpoint — it's not a credential, so it stays as an env var.
 
 ## Architecture
 

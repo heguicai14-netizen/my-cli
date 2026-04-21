@@ -235,9 +235,6 @@ pub fn detect_provider_kind(model: &str) -> ProviderKind {
     {
         return ProviderKind::OpenAi;
     }
-    if anthropic::has_auth_from_env_or_saved().unwrap_or(false) {
-        return ProviderKind::Anthropic;
-    }
     if openai_compat::has_api_key("OPENAI_API_KEY") {
         return ProviderKind::OpenAi;
     }

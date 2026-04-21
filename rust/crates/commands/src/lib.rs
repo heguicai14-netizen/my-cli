@@ -1389,7 +1389,7 @@ pub fn validate_slash_command_input(
         }
         "login" | "logout" => {
             return Err(command_error(
-                "This auth flow was removed. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN instead.",
+                "This auth flow was removed. Set `anthropic.apiKey` or `anthropic.authToken` in ~/.mycli/settings.json instead.",
                 command,
                 "",
             ));
@@ -4599,11 +4599,11 @@ mod tests {
     }
 
     #[test]
-    fn removed_login_and_logout_commands_report_env_auth_guidance() {
+    fn removed_login_and_logout_commands_report_config_auth_guidance() {
         let login_error = parse_error_message("/login");
-        assert!(login_error.contains("ANTHROPIC_API_KEY"));
+        assert!(login_error.contains("anthropic.apiKey"));
         let logout_error = parse_error_message("/logout");
-        assert!(logout_error.contains("ANTHROPIC_AUTH_TOKEN"));
+        assert!(logout_error.contains("anthropic.authToken"));
     }
 
     #[test]

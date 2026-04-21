@@ -26,18 +26,30 @@ cargo run -p my-cli -- --output-format json prompt "summarize src/main.rs"
 
 ## Configuration
 
-Set your API credentials:
+Put your Anthropic credentials in `~/.mycli/settings.json`:
 
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-# Or use a proxy
-export ANTHROPIC_BASE_URL="https://your-proxy.com"
+```json
+{
+  "anthropic": {
+    "apiKey": "sk-ant-..."
+  }
+}
 ```
 
-Or provide an OAuth bearer token directly:
+Or use an OAuth bearer token:
+
+```json
+{
+  "anthropic": {
+    "authToken": "anthropic-oauth-or-proxy-bearer-token"
+  }
+}
+```
+
+Point at a proxy (credentials stay in `settings.json`, base URL stays in env):
 
 ```bash
-export ANTHROPIC_AUTH_TOKEN="anthropic-oauth-or-proxy-bearer-token"
+export ANTHROPIC_BASE_URL="https://your-proxy.com"
 ```
 
 ## Mock parity harness

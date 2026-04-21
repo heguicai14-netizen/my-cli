@@ -814,7 +814,7 @@ fn bare_slash_command_guidance(command_name: &str) -> Option<String> {
         )
     } else {
         format!(
-            "`my-cli {command_name}` is a slash command. Start `claw` and run `/{command_name}` inside the REPL."
+            "`my-cli {command_name}` is a slash command. Start `my-cli` and run `/{command_name}` inside the REPL."
         )
     };
     Some(guidance)
@@ -822,7 +822,7 @@ fn bare_slash_command_guidance(command_name: &str) -> Option<String> {
 
 fn removed_auth_surface_error(command_name: &str) -> String {
     format!(
-        "`my-cli {command_name}` has been removed. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN instead."
+        "`my-cli {command_name}` has been removed. Set `anthropic.apiKey` or `anthropic.authToken` in ~/.mycli/settings.json instead."
     )
 }
 
@@ -909,7 +909,7 @@ fn parse_direct_slash_cli_action(
         Ok(Some(command)) => Err({
             let _ = command;
             format!(
-                "slash command {command_name} is interactive-only. Start `claw` and run it there, or use `my-cli --resume SESSION.jsonl {command_name}` / `my-cli --resume {latest} {command_name}` when the command is marked [resume] in /help.",
+                "slash command {command_name} is interactive-only. Start `my-cli` and run it there, or use `my-cli --resume SESSION.jsonl {command_name}` / `my-cli --resume {latest} {command_name}` when the command is marked [resume] in /help.",
                 command_name = rest[0],
                 latest = LATEST_SESSION_REFERENCE,
             )
@@ -1649,16 +1649,18 @@ fn run_mcp_serve() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[allow(clippy::too_many_lines)]
 fn check_auth_health() -> DiagnosticCheck {
-    let api_key_present = env::var("ANTHROPIC_API_KEY")
+    let cwd = env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let (api_key_present, auth_token_present) = runtime::ConfigLoader::default_for(cwd)
+        .load()
         .ok()
-        .is_some_and(|value| !value.trim().is_empty());
-    let auth_token_present = env::var("ANTHROPIC_AUTH_TOKEN")
-        .ok()
-        .is_some_and(|value| !value.trim().is_empty());
-    let env_details = format!(
-        "Environment       api_key={} auth_token={}",
+        .map(|config| {
+            let creds = config.anthropic_credentials();
+            (creds.api_key().is_some(), creds.auth_token().is_some())
+        })
+        .unwrap_or((false, false));
+    let config_details = format!(
+        "Config            anthropic.apiKey={} anthropic.authToken={}",
         if api_key_present { "present" } else { "absent" },
         if auth_token_present {
             "present"
@@ -1667,92 +1669,30 @@ fn check_auth_health() -> DiagnosticCheck {
         }
     );
 
-    match load_oauth_credentials() {
-        Ok(Some(token_set)) => DiagnosticCheck::new(
-            "Auth",
-            if api_key_present || auth_token_present {
-                DiagnosticLevel::Ok
-            } else {
-                DiagnosticLevel::Warn
-            },
-            if api_key_present || auth_token_present {
-                "supported auth env vars are configured; legacy saved OAuth is ignored"
-            } else {
-                "legacy saved OAuth credentials are present but unsupported"
-            },
-        )
-        .with_details(vec![
-            env_details,
-            format!(
-                "Legacy OAuth      expires_at={} refresh_token={} scopes={}",
-                token_set
-                    .expires_at
-                    .map_or_else(|| "<none>".to_string(), |value| value.to_string()),
-                if token_set.refresh_token.is_some() {
-                    "present"
-                } else {
-                    "absent"
-                },
-                if token_set.scopes.is_empty() {
-                    "<none>".to_string()
-                } else {
-                    token_set.scopes.join(",")
-                }
-            ),
-            "Suggested action  set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN; `my-cli login` is removed"
+    let credentials_present = api_key_present || auth_token_present;
+    let level = if credentials_present {
+        DiagnosticLevel::Ok
+    } else {
+        DiagnosticLevel::Warn
+    };
+    let summary = if credentials_present {
+        "Anthropic credentials are configured in settings.json"
+    } else {
+        "no Anthropic credentials found in ~/.mycli/settings.json or <repo>/.mycli/settings.json"
+    };
+    let mut details = vec![config_details];
+    if !credentials_present {
+        details.push(
+            "Suggested action  set `anthropic.apiKey` or `anthropic.authToken` in .mycli/settings.json"
                 .to_string(),
-        ])
-        .with_data(Map::from_iter([
-            ("api_key_present".to_string(), json!(api_key_present)),
-            ("auth_token_present".to_string(), json!(auth_token_present)),
-            ("legacy_saved_oauth_present".to_string(), json!(true)),
-            (
-                "legacy_saved_oauth_expires_at".to_string(),
-                json!(token_set.expires_at),
-            ),
-            (
-                "legacy_refresh_token_present".to_string(),
-                json!(token_set.refresh_token.is_some()),
-            ),
-            ("legacy_scopes".to_string(), json!(token_set.scopes)),
-        ])),
-        Ok(None) => DiagnosticCheck::new(
-            "Auth",
-            if api_key_present || auth_token_present {
-                DiagnosticLevel::Ok
-            } else {
-                DiagnosticLevel::Warn
-            },
-            if api_key_present || auth_token_present {
-                "supported auth env vars are configured"
-            } else {
-                "no supported auth env vars were found"
-            },
-        )
-        .with_details(vec![env_details])
-        .with_data(Map::from_iter([
-            ("api_key_present".to_string(), json!(api_key_present)),
-            ("auth_token_present".to_string(), json!(auth_token_present)),
-            ("legacy_saved_oauth_present".to_string(), json!(false)),
-            ("legacy_saved_oauth_expires_at".to_string(), Value::Null),
-            ("legacy_refresh_token_present".to_string(), json!(false)),
-            ("legacy_scopes".to_string(), json!(Vec::<String>::new())),
-        ])),
-        Err(error) => DiagnosticCheck::new(
-            "Auth",
-            DiagnosticLevel::Fail,
-            format!("failed to inspect legacy saved credentials: {error}"),
-        )
-        .with_data(Map::from_iter([
-            ("api_key_present".to_string(), json!(api_key_present)),
-            ("auth_token_present".to_string(), json!(auth_token_present)),
-            ("legacy_saved_oauth_present".to_string(), Value::Null),
-            ("legacy_saved_oauth_expires_at".to_string(), Value::Null),
-            ("legacy_refresh_token_present".to_string(), Value::Null),
-            ("legacy_scopes".to_string(), Value::Null),
-            ("legacy_saved_oauth_error".to_string(), json!(error.to_string())),
-        ])),
+        );
     }
+    DiagnosticCheck::new("Auth", level, summary)
+        .with_details(details)
+        .with_data(Map::from_iter([
+            ("api_key_present".to_string(), json!(api_key_present)),
+            ("auth_token_present".to_string(), json!(auth_token_present)),
+        ]))
 }
 
 fn check_config_health(
@@ -8855,7 +8795,7 @@ mod tests {
         }
         std::fs::remove_dir_all(config_home).expect("temp config home should clean up");
 
-        assert!(error.to_string().contains("ANTHROPIC_API_KEY"));
+        assert!(error.to_string().contains("anthropic.apiKey"));
     }
 
     #[test]
@@ -9234,9 +9174,9 @@ mod tests {
     #[test]
     fn removed_login_and_logout_subcommands_error_helpfully() {
         let login = parse_args(&["login".to_string()]).expect_err("login should be removed");
-        assert!(login.contains("ANTHROPIC_API_KEY"));
+        assert!(login.contains("anthropic.apiKey"));
         let logout = parse_args(&["logout".to_string()]).expect_err("logout should be removed");
-        assert!(logout.contains("ANTHROPIC_AUTH_TOKEN"));
+        assert!(logout.contains("anthropic.authToken"));
         assert_eq!(
             parse_args(&["doctor".to_string()]).expect("doctor should parse"),
             CliAction::Doctor {
@@ -11619,18 +11559,25 @@ UU conflicted.rs",
 
     #[test]
     fn build_runtime_runs_plugin_lifecycle_init_and_shutdown() {
-        // Serialize access to process-wide env vars so parallel tests that
-        // set/remove ANTHROPIC_API_KEY do not race with this test.
+        // Serialize access to the process cwd / config paths so parallel tests
+        // that manipulate runtime config do not race.
         let _guard = env_lock();
         let config_home = temp_dir();
-        // Inject a dummy API key so runtime construction succeeds without real credentials.
-        // This test only exercises plugin lifecycle (init/shutdown), never calls the API.
-        std::env::set_var("ANTHROPIC_API_KEY", "test-dummy-key-for-plugin-lifecycle");
         let workspace = temp_dir();
         let source_root = temp_dir();
         fs::create_dir_all(&config_home).expect("config home");
         fs::create_dir_all(&workspace).expect("workspace");
         fs::create_dir_all(&source_root).expect("source root");
+        // Inject a dummy API key via settings.json so runtime construction
+        // succeeds without a real Anthropic credential. This test only exercises
+        // plugin lifecycle (init/shutdown) and never calls the API.
+        fs::write(
+            config_home.join("settings.json"),
+            r#"{"anthropic":{"apiKey":"test-dummy-key-for-plugin-lifecycle"}}"#,
+        )
+        .expect("write settings.json");
+        let original_config_home = std::env::var_os("MYCLI_CONFIG_HOME");
+        std::env::set_var("MYCLI_CONFIG_HOME", &config_home);
         write_plugin_fixture(&source_root, "lifecycle-runtime-demo", false, true);
 
         let mut manager = PluginManager::new(PluginManagerConfig::new(&config_home));
@@ -11674,7 +11621,10 @@ UU conflicted.rs",
         let _ = fs::remove_dir_all(config_home);
         let _ = fs::remove_dir_all(workspace);
         let _ = fs::remove_dir_all(source_root);
-        std::env::remove_var("ANTHROPIC_API_KEY");
+        match original_config_home {
+            Some(value) => std::env::set_var("MYCLI_CONFIG_HOME", value),
+            None => std::env::remove_var("MYCLI_CONFIG_HOME"),
+        }
     }
 
     #[test]
