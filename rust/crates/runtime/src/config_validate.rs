@@ -197,6 +197,14 @@ const TOP_LEVEL_FIELDS: &[FieldSpec] = &[
         name: "trustedRoots",
         expected: FieldType::StringArray,
     },
+    FieldSpec {
+        name: "anthropic",
+        expected: FieldType::Object,
+    },
+    FieldSpec {
+        name: "requestHeaders",
+        expected: FieldType::Object,
+    },
 ];
 
 const HOOKS_FIELDS: &[FieldSpec] = &[

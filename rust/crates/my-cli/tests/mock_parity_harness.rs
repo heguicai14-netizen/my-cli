@@ -7,7 +7,7 @@ use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use mock_anthropic_service::{MockAnthropicService, SCENARIO_PREFIX};
+use mock_upstream_service::{MockAnthropicService, SCENARIO_PREFIX};
 use serde_json::{json, Value};
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -314,7 +314,7 @@ fn run_case(case: ScenarioCase, workspace: &HarnessWorkspace, base_url: &str) ->
         .env_clear()
         .env("ANTHROPIC_API_KEY", "test-parity-key")
         .env("ANTHROPIC_BASE_URL", base_url)
-        .env("CLAW_CONFIG_HOME", &workspace.config_home)
+        .env("MYCLI_CONFIG_HOME", &workspace.config_home)
         .env("HOME", &workspace.home)
         .env("NO_COLOR", "1")
         .env("PATH", "/usr/bin:/bin")

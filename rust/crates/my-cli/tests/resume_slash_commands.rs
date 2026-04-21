@@ -56,7 +56,7 @@ fn resumed_binary_accepts_slash_commands_with_arguments() {
     assert!(stdout.contains("Session cleared"));
     assert!(stdout.contains("Mode             resumed session reset"));
     assert!(stdout.contains("Previous session"));
-    assert!(stdout.contains("Resume previous  claw --resume"));
+    assert!(stdout.contains("Resume previous  my-cli --resume"));
     assert!(stdout.contains("Backup           "));
     assert!(stdout.contains("Session file     "));
 
@@ -130,10 +130,10 @@ fn resumed_config_command_loads_settings_files_end_to_end() {
     fs::write(config_home.join("settings.json"), r#"{"model":"haiku"}"#)
         .expect("user config should write");
     fs::write(
-        project_dir.join(".mycli").join("settings.local.json"),
+        project_dir.join(".mycli").join("settings.json"),
         r#"{"model":"opus"}"#,
     )
-    .expect("local config should write");
+    .expect("project config should write");
 
     // when
     let output = run_claw_with_env(
@@ -144,7 +144,7 @@ fn resumed_config_command_loads_settings_files_end_to_end() {
             "/config",
             "model",
         ],
-        &[("CLAW_CONFIG_HOME", config_home.to_str().expect("utf8 path"))],
+        &[("MYCLI_CONFIG_HOME", config_home.to_str().expect("utf8 path"))],
     );
 
     // then
@@ -167,7 +167,7 @@ fn resumed_config_command_loads_settings_files_end_to_end() {
     assert!(stdout.contains(
         project_dir
             .join(".mycli")
-            .join("settings.local.json")
+            .join("settings.json")
             .to_str()
             .expect("utf8 path")
     ));

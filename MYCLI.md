@@ -41,22 +41,126 @@ cargo test --workspace
 ./target/debug/my-cli --output-format json prompt "status"
 ```
 
-## Authentication
+## Configuration
 
-Set credentials before running:
+Credentials can come from environment variables **or** `.mycli/settings.json`. Environment variables win when both are set, matching standard Anthropic SDK behavior; settings.json provides a persistent fallback.
 
+### Anthropic (first-class)
+
+**Option A — env var (standard):**
 ```bash
-# Anthropic API key (from console.anthropic.com)
 export ANTHROPIC_API_KEY="sk-ant-..."
-
-# OR OAuth bearer token (for proxies)
-export ANTHROPIC_AUTH_TOKEN="bearer-token"
-
-# Optional: custom base URL
-export ANTHROPIC_BASE_URL="https://your-proxy.com"
 ```
 
-**Common auth mistake:** `sk-ant-*` keys go in `ANTHROPIC_API_KEY`, not `ANTHROPIC_AUTH_TOKEN`. The latter expects OAuth bearer tokens and uses a different HTTP header.
+**Option B — settings.json:**
+```json
+{
+  "anthropic": {
+    "apiKey": "sk-ant-..."
+  }
+}
+```
+
+**Option C — anything goes in settings.json via the `env` block:**
+```json
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "sk-ant-..."
+  }
+}
+```
+
+`sk-ant-*` keys go in `apiKey` / `ANTHROPIC_API_KEY`; OAuth bearer tokens go in `authToken` / `ANTHROPIC_AUTH_TOKEN`. Startup fails only when **every** source is empty.
+
+Resolution order: env `ANTHROPIC_API_KEY` → `anthropic.apiKey` → env `ANTHROPIC_AUTH_TOKEN` → `anthropic.authToken` → error.
+
+### Kimi Code (Anthropic-compatible endpoint)
+
+Kimi Code's docs say to `export ANTHROPIC_BASE_URL=https://api.kimi.com/coding/` and `export ANTHROPIC_API_KEY=sk-kimi-...`. Exactly those env vars work. Or put them in settings.json:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.kimi.com/coding/",
+    "ANTHROPIC_API_KEY": "sk-kimi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  }
+}
+```
+
+### Any other provider — use the `env` block
+
+At startup, every string entry under `env` is projected into the process environment before provider clients initialize. That's the knob for OpenAI, OpenRouter, Ollama, xAI, DashScope, proxies, anything. Examples:
+
+**OpenRouter (via OpenAI-compat protocol):**
+```json
+{
+  "model": "openai/gpt-4.1-mini",
+  "env": {
+    "OPENAI_API_KEY": "sk-or-v1-...",
+    "OPENAI_BASE_URL": "https://openrouter.ai/api/v1"
+  }
+}
+```
+
+**Local Ollama (no key):**
+```json
+{
+  "model": "llama3.2",
+  "env": {
+    "OPENAI_BASE_URL": "http://127.0.0.1:11434/v1"
+  }
+}
+```
+
+**xAI Grok:**
+```json
+{
+  "model": "grok-3",
+  "env": {
+    "XAI_API_KEY": "xai-..."
+  }
+}
+```
+
+**Alibaba DashScope (Qwen):**
+```json
+{
+  "model": "qwen-plus",
+  "env": {
+    "DASHSCOPE_API_KEY": "sk-..."
+  }
+}
+```
+
+**Corporate proxy in front of Anthropic:**
+```json
+{
+  "anthropic": {"authToken": "proxy-bearer-..."},
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://your-proxy.corp/v1"
+  }
+}
+```
+
+### Custom request headers (`requestHeaders`)
+
+Some gateways require extra headers (OpenRouter wants `HTTP-Referer` / `X-Title`; Kimi's Claude-Code plan may require `X-Moonshot-*`; corporate proxies may want a tenant tag). The `requestHeaders` block appends every entry to **every outbound provider request** — Anthropic and OpenAI-compat paths alike:
+
+```json
+{
+  "model": "openai/gpt-4.1-mini",
+  "env": {
+    "OPENAI_API_KEY": "sk-or-v1-...",
+    "OPENAI_BASE_URL": "https://openrouter.ai/api/v1"
+  },
+  "requestHeaders": {
+    "HTTP-Referer": "https://my-cli.dev",
+    "X-Title": "my-cli"
+  }
+}
+```
+
+`User-Agent` is always sent automatically (`my-cli/<version>`) on both paths.
 
 ## Architecture
 
@@ -68,7 +172,7 @@ export ANTHROPIC_BASE_URL="https://your-proxy.com"
 - **`rust/crates/tools/`** — Built-in tool specs and execution (Bash, Read, Write, Edit, Grep, Glob, WebSearch, WebFetch, Agent, Skill, etc.)
 - **`rust/crates/commands/`** — Slash command definitions, parsing, help text, JSON rendering
 - **`rust/crates/plugins/`** — Plugin metadata, install/enable/disable flows, hook integration
-- **`rust/crates/mock-anthropic-service/`** — Deterministic `/v1/messages` mock for parity testing
+- **`rust/crates/mock-upstream-service/`** — Deterministic `/v1/messages` mock for parity testing
 - **`rust/crates/telemetry/`** — Session trace events and usage telemetry
 - **`rust/crates/compat-harness/`** — Extracts tool/prompt manifests from upstream TypeScript source
 
@@ -89,7 +193,7 @@ export ANTHROPIC_BASE_URL="https://your-proxy.com"
 - Prompts user for approval when tool requires escalation
 
 **ConfigLoader** (`runtime/src/config.rs`):
-- Loads config hierarchy: `~/.mycli.json` → `~/.config/claw/settings.json` → `<repo>/.mycli.json` → `<repo>/.mycli/settings.json` → `<repo>/.mycli/settings.local.json`
+- Loads config hierarchy: `~/.mycli/settings.json` (overridable via `MYCLI_CONFIG_HOME`) → `<repo>/.mycli/settings.json`
 - Later entries override earlier ones
 
 **McpServerManager** (`runtime/src/mcp_server.rs`):
@@ -124,7 +228,7 @@ Default model: `claude-opus-4-6`
 
 ## Config Files
 
-Keep shared defaults in `.mycli.json` at repo root. Use `.mycli/settings.local.json` for machine-local overrides (gitignored). Never commit API keys or tokens.
+Keep shared defaults in `<repo>/.mycli/settings.json`. User-level defaults live in `~/.mycli/settings.json` (override the directory with `MYCLI_CONFIG_HOME`). No other config files are loaded. Never commit API keys or tokens.
 
 ## Development Workflow
 

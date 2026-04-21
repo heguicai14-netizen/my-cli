@@ -28,7 +28,7 @@ tools = { path = "../tools" }
 workspace = true
 
 [dev-dependencies]
-mock-anthropic-service = { path = "../mock-anthropic-service" }
+mock-upstream-service = { path = "../mock-upstream-service" }
 serde_json.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread"] }
 

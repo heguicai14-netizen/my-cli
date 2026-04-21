@@ -9,7 +9,7 @@ const STARTER_CLAW_JSON: &str = concat!(
     "}\n",
 );
 const GITIGNORE_COMMENT: &str = "# My CLI local artifacts";
-const GITIGNORE_ENTRIES: [&str; 3] = [".mycli/settings.local.json", ".mycli/sessions/", ".mycli/"];
+const GITIGNORE_ENTRIES: [&str; 2] = [".mycli/sessions/", ".mycli/"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum InitStatus {
@@ -80,16 +80,16 @@ struct RepoDetection {
 pub(crate) fn initialize_repo(cwd: &Path) -> Result<InitReport, Box<dyn std::error::Error>> {
     let mut artifacts = Vec::new();
 
-    let claw_dir = cwd.join(".claw");
+    let mycli_dir = cwd.join(".mycli");
     artifacts.push(InitArtifact {
         name: ".mycli/",
-        status: ensure_dir(&claw_dir)?,
+        status: ensure_dir(&mycli_dir)?,
     });
 
-    let claw_json = cwd.join(".mycli.json");
+    let settings_json = mycli_dir.join("settings.json");
     artifacts.push(InitArtifact {
-        name: ".mycli.json",
-        status: write_file_if_missing(&claw_json, STARTER_CLAW_JSON)?,
+        name: ".mycli/settings.json",
+        status: write_file_if_missing(&settings_json, STARTER_CLAW_JSON)?,
     });
 
     let gitignore = cwd.join(".gitignore");
@@ -209,7 +209,7 @@ pub(crate) fn render_init_mycli_md(cwd: &Path) -> String {
 
     lines.push("## Working agreement".to_string());
     lines.push("- Prefer small, reviewable changes and keep generated bootstrap files aligned with actual repo workflows.".to_string());
-    lines.push("- Keep shared defaults in `.mycli.json`; reserve `.mycli/settings.local.json` for machine-local overrides.".to_string());
+    lines.push("- Keep shared defaults in `.mycli/settings.json`; it is the only configuration file loaded from the repo.".to_string());
     lines.push("- Do not overwrite existing `MYCLI.md` content automatically; update it intentionally when repo workflows change.".to_string());
     lines.push(String::new());
 
@@ -355,15 +355,16 @@ mod tests {
         let report = initialize_repo(&root).expect("init should succeed");
         let rendered = report.render();
         assert!(rendered.contains(".mycli/"));
-        assert!(rendered.contains(".mycli.json"));
+        assert!(rendered.contains(".mycli/settings.json"));
         assert!(rendered.contains("created"));
         assert!(rendered.contains(".gitignore       created"));
         assert!(rendered.contains("MYCLI.md        created"));
-        assert!(root.join(".claw").is_dir());
-        assert!(root.join(".mycli.json").is_file());
+        assert!(root.join(".mycli").is_dir());
+        assert!(root.join(".mycli").join("settings.json").is_file());
         assert!(root.join("MYCLI.md").is_file());
         assert_eq!(
-            fs::read_to_string(root.join(".mycli.json")).expect("read claw json"),
+            fs::read_to_string(root.join(".mycli").join("settings.json"))
+                .expect("read settings json"),
             concat!(
                 "{\n",
                 "  \"permissions\": {\n",
@@ -373,9 +374,8 @@ mod tests {
             )
         );
         let gitignore = fs::read_to_string(root.join(".gitignore")).expect("read gitignore");
-        assert!(gitignore.contains(".mycli/settings.local.json"));
+        assert!(!gitignore.contains(".mycli/settings.local.json"));
         assert!(gitignore.contains(".mycli/sessions/"));
-        assert!(gitignore.contains(".clawhip/"));
         let claude_md = fs::read_to_string(root.join("MYCLI.md")).expect("read claude md");
         assert!(claude_md.contains("Languages: Rust."));
         assert!(claude_md.contains("cargo clippy --workspace --all-targets -- -D warnings"));
@@ -388,8 +388,7 @@ mod tests {
         let root = temp_dir();
         fs::create_dir_all(&root).expect("create root");
         fs::write(root.join("MYCLI.md"), "custom guidance\n").expect("write existing claude md");
-        fs::write(root.join(".gitignore"), ".mycli/settings.local.json\n")
-            .expect("write gitignore");
+        fs::write(root.join(".gitignore"), ".mycli/sessions/\n").expect("write gitignore");
 
         let first = initialize_repo(&root).expect("first init should succeed");
         assert!(first
@@ -398,7 +397,7 @@ mod tests {
         let second = initialize_repo(&root).expect("second init should succeed");
         let second_rendered = second.render();
         assert!(second_rendered.contains(".mycli/"));
-        assert!(second_rendered.contains(".mycli.json"));
+        assert!(second_rendered.contains(".mycli/settings.json"));
         assert!(second_rendered.contains("skipped (already exists)"));
         assert!(second_rendered.contains(".gitignore       skipped (already exists)"));
         assert!(second_rendered.contains("MYCLI.md        skipped (already exists)"));
@@ -407,9 +406,7 @@ mod tests {
             "custom guidance\n"
         );
         let gitignore = fs::read_to_string(root.join(".gitignore")).expect("read gitignore");
-        assert_eq!(gitignore.matches(".mycli/settings.local.json").count(), 1);
         assert_eq!(gitignore.matches(".mycli/sessions/").count(), 1);
-        assert_eq!(gitignore.matches(".clawhip/").count(), 1);
 
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }

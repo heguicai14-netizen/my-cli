@@ -1,6 +1,6 @@
-# 🦞 Claw Code — Rust Implementation
+# 🦞 My CLI — Rust Implementation
 
-A high-performance Rust rewrite of the Claw Code CLI agent harness. Built for speed, safety, and native tool execution.
+A high-performance Rust rewrite of the My CLI CLI agent harness. Built for speed, safety, and native tool execution.
 
 For a task-oriented guide with copy/paste examples, see [`../USAGE.md`](../USAGE.md).
 
@@ -9,35 +9,47 @@ For a task-oriented guide with copy/paste examples, see [`../USAGE.md`](../USAGE
 ```bash
 # Inspect available commands
 cd rust/
-cargo run -p rusty-claude-cli -- --help
+cargo run -p my-cli -- --help
 
 # Build the workspace
 cargo build --workspace
 
 # Run the interactive REPL
-cargo run -p rusty-claude-cli -- --model claude-opus-4-6
+cargo run -p my-cli -- --model claude-opus-4-6
 
 # One-shot prompt
-cargo run -p rusty-claude-cli -- prompt "explain this codebase"
+cargo run -p my-cli -- prompt "explain this codebase"
 
 # JSON output for automation
-cargo run -p rusty-claude-cli -- --output-format json prompt "summarize src/main.rs"
+cargo run -p my-cli -- --output-format json prompt "summarize src/main.rs"
 ```
 
 ## Configuration
 
-Set your API credentials:
+Put your Anthropic credentials in `~/.mycli/settings.json`:
 
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-# Or use a proxy
-export ANTHROPIC_BASE_URL="https://your-proxy.com"
+```json
+{
+  "anthropic": {
+    "apiKey": "sk-ant-..."
+  }
+}
 ```
 
-Or provide an OAuth bearer token directly:
+Or use an OAuth bearer token:
+
+```json
+{
+  "anthropic": {
+    "authToken": "anthropic-oauth-or-proxy-bearer-token"
+  }
+}
+```
+
+Point at a proxy (credentials stay in `settings.json`, base URL stays in env):
 
 ```bash
-export ANTHROPIC_AUTH_TOKEN="anthropic-oauth-or-proxy-bearer-token"
+export ANTHROPIC_BASE_URL="https://your-proxy.com"
 ```
 
 ## Mock parity harness
@@ -51,7 +63,7 @@ cd rust/
 ./scripts/run_mock_parity_harness.sh
 
 # Or start the mock service manually for ad hoc CLI runs
-cargo run -p mock-anthropic-service -- --bind 127.0.0.1:0
+cargo run -p mock-upstream-service -- --bind 127.0.0.1:0
 ```
 
 Harness coverage:
@@ -69,8 +81,8 @@ Harness coverage:
 
 Primary artifacts:
 
-- `crates/mock-anthropic-service/` — reusable mock Anthropic-compatible service
-- `crates/rusty-claude-cli/tests/mock_parity_harness.rs` — clean-env CLI harness
+- `crates/mock-upstream-service/` — reusable mock Anthropic-compatible service
+- `crates/my-cli/tests/mock_parity_harness.rs` — clean-env CLI harness
 - `scripts/run_mock_parity_harness.sh` — reproducible wrapper
 - `scripts/run_mock_parity_diff.py` — scenario checklist + PARITY mapping runner
 - `mock_parity_scenarios.json` — scenario-to-PARITY manifest
@@ -88,7 +100,7 @@ Primary artifacts:
 | Todo tracking | ✅ |
 | Notebook editing | ✅ |
 | CLAUDE.md / project memory | ✅ |
-| Config file hierarchy (`.claw.json` + merged config sections) | ✅ |
+| Config file hierarchy (`.mycli/settings.json` + merged config sections) | ✅ |
 | Permission system | ✅ |
 | MCP server lifecycle + inspection | ✅ |
 | Session persistence + resume | ✅ |
@@ -118,7 +130,7 @@ Short names resolve to the latest model versions:
 Representative current surface:
 
 ```text
-claw [OPTIONS] [COMMAND]
+my-cli [OPTIONS] [COMMAND]
 
 Flags:
   --model MODEL
@@ -145,12 +157,12 @@ Top-level commands:
   init
 ```
 
-`claw acp` is a local discoverability surface for editor-first users: it reports the current ACP/Zed status without starting the runtime. As of April 16, 2026, claw-code does **not** ship an ACP/Zed daemon entrypoint yet, and `claw acp serve` is only a status alias until the real protocol surface lands.
+`my-cli acp` is a local discoverability surface for editor-first users: it reports the current ACP/Zed status without starting the runtime. As of April 16, 2026, my-cli does **not** ship an ACP/Zed daemon entrypoint yet, and `my-cli acp serve` is only a status alias until the real protocol surface lands.
 
 The command surface is moving quickly. For the canonical live help text, run:
 
 ```bash
-cargo run -p rusty-claude-cli -- --help
+cargo run -p my-cli -- --help
 ```
 
 ## Slash Commands (REPL)
@@ -165,7 +177,7 @@ The REPL now exposes a much broader surface than the original minimal shell:
 - automation / analysis: `/review`, `/advisor`, `/insights`, `/security-review`, `/subagent`, `/team`, `/telemetry`, `/providers`, `/cron`, and more
 - plugin management: `/plugin` (with aliases `/plugins`, `/marketplace`)
 
-Notable claw-first surfaces now available directly in slash form:
+Notable my-cli-first surfaces now available directly in slash form:
 - `/skills [list|install <path>|help]`
 - `/agents [list|help]`
 - `/mcp [list|show <server>|help]`
@@ -173,7 +185,7 @@ Notable claw-first surfaces now available directly in slash form:
 - `/plugin [list|install <path>|enable <name>|disable <name>|uninstall <id>|update <id>]`
 - `/subagent [list|steer <target> <msg>|kill <id>]`
 
-See [`../USAGE.md`](../USAGE.md) for usage examples and run `cargo run -p rusty-claude-cli -- --help` for the live canonical command list.
+See [`../USAGE.md`](../USAGE.md) for usage examples and run `cargo run -p my-cli -- --help` for the live canonical command list.
 
 ## Workspace Layout
 
@@ -185,10 +197,10 @@ rust/
     ├── api/                # Provider clients + streaming + request preflight
     ├── commands/           # Shared slash-command registry + help rendering
     ├── compat-harness/     # TS manifest extraction harness
-    ├── mock-anthropic-service/ # Deterministic local Anthropic-compatible mock
+    ├── mock-upstream-service/ # Deterministic local Anthropic-compatible mock
     ├── plugins/            # Plugin metadata, manager, install/enable/disable surfaces
     ├── runtime/            # Session, config, permissions, MCP, prompts, auth/runtime loop
-    ├── rusty-claude-cli/   # Main CLI binary (`claw`)
+    ├── my-cli/   # Main CLI binary (`my-cli`)
     ├── telemetry/          # Session tracing and usage telemetry types
     └── tools/              # Built-in tools, skill resolution, tool search, agent runtime surfaces
 ```
@@ -198,10 +210,10 @@ rust/
 - **api** — provider clients, SSE streaming, request/response types, auth (`ANTHROPIC_API_KEY` + bearer-token support), request-size/context-window preflight
 - **commands** — slash command definitions, parsing, help text generation, JSON/text command rendering
 - **compat-harness** — extracts tool/prompt manifests from upstream TS source
-- **mock-anthropic-service** — deterministic `/v1/messages` mock for CLI parity tests and local harness runs
+- **mock-upstream-service** — deterministic `/v1/messages` mock for CLI parity tests and local harness runs
 - **plugins** — plugin metadata, install/enable/disable/update flows, plugin tool definitions, hook integration surfaces
 - **runtime** — `ConversationRuntime`, config loading, session persistence, permission policy, MCP client lifecycle, system prompt assembly, usage tracking
-- **rusty-claude-cli** — REPL, one-shot prompt, direct CLI subcommands, streaming display, tool call rendering, CLI argument parsing
+- **my-cli** — REPL, one-shot prompt, direct CLI subcommands, streaming display, tool call rendering, CLI argument parsing
 - **telemetry** — session trace events and supporting telemetry payloads
 - **tools** — tool specs + execution: Bash, ReadFile, WriteFile, EditFile, GlobSearch, GrepSearch, WebSearch, WebFetch, Agent, TodoWrite, NotebookEdit, Skill, ToolSearch, and runtime-facing tool discovery
 
@@ -209,7 +221,7 @@ rust/
 
 - **~20K lines** of Rust
 - **9 crates** in workspace
-- **Binary name:** `claw`
+- **Binary name:** `my-cli`
 - **Default model:** `claude-opus-4-6`
 - **Default permissions:** `danger-full-access`
 

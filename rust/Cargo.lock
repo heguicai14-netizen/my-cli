@@ -907,7 +907,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mock-anthropic-service"
+name = "mock-upstream-service"
 version = "0.1.0"
 dependencies = [
  "api",
@@ -923,7 +923,7 @@ dependencies = [
  "commands",
  "compat-harness",
  "crossterm",
- "mock-anthropic-service",
+ "mock-upstream-service",
  "plugins",
  "pulldown-cmark",
  "runtime",

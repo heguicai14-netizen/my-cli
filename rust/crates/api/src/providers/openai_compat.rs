@@ -105,6 +105,8 @@ pub struct OpenAiCompatClient {
     max_retries: u32,
     initial_backoff: Duration,
     max_backoff: Duration,
+    user_agent: String,
+    extra_headers: std::collections::BTreeMap<String, String>,
 }
 
 impl OpenAiCompatClient {
@@ -126,7 +128,18 @@ impl OpenAiCompatClient {
             max_retries: DEFAULT_MAX_RETRIES,
             initial_backoff: DEFAULT_INITIAL_BACKOFF,
             max_backoff: DEFAULT_MAX_BACKOFF,
+            user_agent: telemetry::ClientIdentity::default().user_agent(),
+            extra_headers: std::collections::BTreeMap::new(),
         }
+    }
+
+    #[must_use]
+    pub fn with_extra_headers(
+        mut self,
+        headers: std::collections::BTreeMap<String, String>,
+    ) -> Self {
+        self.extra_headers = headers;
+        self
     }
 
     pub fn from_env(config: OpenAiCompatConfig) -> Result<Self, ApiError> {
@@ -270,10 +283,16 @@ impl OpenAiCompatClient {
         check_request_body_size(request, self.config())?;
 
         let request_url = chat_completions_endpoint(&self.base_url);
-        self.http
+        let mut builder = self
+            .http
             .post(&request_url)
             .header("content-type", "application/json")
-            .bearer_auth(&self.api_key)
+            .header("user-agent", &self.user_agent)
+            .bearer_auth(&self.api_key);
+        for (name, value) in &self.extra_headers {
+            builder = builder.header(name, value);
+        }
+        builder
             .json(&build_chat_completion_request(request, self.config()))
             .send()
             .await

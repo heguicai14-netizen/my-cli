@@ -4,7 +4,7 @@ use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use mock_anthropic_service::{MockAnthropicService, SCENARIO_PREFIX};
+use mock_upstream_service::{MockAnthropicService, SCENARIO_PREFIX};
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -138,7 +138,7 @@ fn run_claw(
         .env_clear()
         .env("ANTHROPIC_API_KEY", "test-compact-key")
         .env("ANTHROPIC_BASE_URL", base_url)
-        .env("CLAW_CONFIG_HOME", config_home)
+        .env("MYCLI_CONFIG_HOME", config_home)
         .env("HOME", home)
         .env("NO_COLOR", "1")
         .env("PATH", "/usr/bin:/bin")

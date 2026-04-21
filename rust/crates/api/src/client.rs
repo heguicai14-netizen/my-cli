@@ -1,6 +1,6 @@
 use crate::error::ApiError;
 use crate::prompt_cache::{PromptCache, PromptCacheRecord, PromptCacheStats};
-use crate::providers::anthropic::{self, AnthropicClient, AuthSource};
+use crate::providers::upstream::{self as anthropic, AnthropicClient, AuthSource};
 use crate::providers::openai_compat::{self, OpenAiCompatClient, OpenAiCompatConfig};
 use crate::providers::{self, ProviderKind};
 use crate::types::{MessageRequest, MessageResponse, StreamEvent};
@@ -43,6 +43,22 @@ impl ProviderClient {
                 };
                 Ok(Self::OpenAi(OpenAiCompatClient::from_env(config)?))
             }
+        }
+    }
+
+    /// Attach the given custom headers to every outbound request produced
+    /// by this provider client. Applies to all three underlying variants
+    /// (Anthropic, xAI, OpenAI-compat); the caller does not have to
+    /// discriminate on kind.
+    #[must_use]
+    pub fn with_extra_headers(
+        self,
+        headers: std::collections::BTreeMap<String, String>,
+    ) -> Self {
+        match self {
+            Self::Anthropic(client) => Self::Anthropic(client.with_extra_headers(headers)),
+            Self::Xai(client) => Self::Xai(client.with_extra_headers(headers)),
+            Self::OpenAi(client) => Self::OpenAi(client.with_extra_headers(headers)),
         }
     }
 
@@ -130,7 +146,8 @@ impl MessageStream {
 }
 
 pub use anthropic::{
-    oauth_token_is_expired, resolve_saved_oauth_token, resolve_startup_auth_source, OAuthTokenSet,
+    oauth_token_is_expired, resolve_saved_oauth_token, resolve_startup_auth_source,
+    resolve_startup_auth_source_with_config, AnthropicConfigCredentials, OAuthTokenSet,
 };
 #[must_use]
 pub fn read_base_url() -> String {

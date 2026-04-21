@@ -65,6 +65,33 @@ pub struct RuntimeFeatureConfig {
     sandbox: SandboxConfig,
     provider_fallbacks: ProviderFallbackConfig,
     trusted_roots: Vec<String>,
+    anthropic_credentials: AnthropicCredentialsConfig,
+    request_headers: BTreeMap<String, String>,
+}
+
+/// Anthropic credentials sourced from `anthropic.apiKey` / `anthropic.authToken`
+/// in `settings.json`. Environment variables still win when present.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AnthropicCredentialsConfig {
+    api_key: Option<String>,
+    auth_token: Option<String>,
+}
+
+impl AnthropicCredentialsConfig {
+    #[must_use]
+    pub fn api_key(&self) -> Option<&str> {
+        self.api_key.as_deref()
+    }
+
+    #[must_use]
+    pub fn auth_token(&self) -> Option<&str> {
+        self.auth_token.as_deref()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.api_key.is_none() && self.auth_token.is_none()
+    }
 }
 
 /// Ordered chain of fallback model identifiers used when the primary
@@ -240,10 +267,16 @@ impl ConfigLoader {
 
     #[must_use]
     pub fn discover(&self) -> Vec<ConfigEntry> {
-        vec![ConfigEntry {
-            source: ConfigSource::User,
-            path: self.config_home.join("settings.json"),
-        }]
+        vec![
+            ConfigEntry {
+                source: ConfigSource::User,
+                path: self.config_home.join("settings.json"),
+            },
+            ConfigEntry {
+                source: ConfigSource::Project,
+                path: self.cwd.join(".mycli").join("settings.json"),
+            },
+        ]
     }
 
     pub fn load(&self) -> Result<RuntimeConfig, ConfigError> {
@@ -293,6 +326,8 @@ impl ConfigLoader {
             sandbox: parse_optional_sandbox_config(&merged_value)?,
             provider_fallbacks: parse_optional_provider_fallbacks(&merged_value)?,
             trusted_roots: parse_optional_trusted_roots(&merged_value)?,
+            anthropic_credentials: parse_optional_anthropic_credentials(&merged_value)?,
+            request_headers: parse_optional_request_headers(&merged_value)?,
         };
 
         Ok(RuntimeConfig {
@@ -392,6 +427,39 @@ impl RuntimeConfig {
     pub fn trusted_roots(&self) -> &[String] {
         &self.feature_config.trusted_roots
     }
+
+    #[must_use]
+    pub fn anthropic_credentials(&self) -> &AnthropicCredentialsConfig {
+        &self.feature_config.anthropic_credentials
+    }
+
+    #[must_use]
+    pub fn request_headers(&self) -> &BTreeMap<String, String> {
+        &self.feature_config.request_headers
+    }
+
+    /// Apply every string entry under the top-level `env` object to the process
+    /// environment via `std::env::set_var`. Non-string values are skipped
+    /// silently. Returns the list of keys that were set.
+    ///
+    /// Intended to be called once at CLI startup, before any provider client
+    /// that reads env vars (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `XAI_API_KEY`,
+    /// etc.) is constructed. Config values take precedence over whatever the
+    /// shell already exported.
+    pub fn apply_env_vars(&self) -> Vec<String> {
+        let Some(env_object) = self.merged.get("env").and_then(JsonValue::as_object) else {
+            return Vec::new();
+        };
+        let mut applied = Vec::with_capacity(env_object.len());
+        for (key, value) in env_object {
+            let Some(raw) = value.as_str() else {
+                continue;
+            };
+            std::env::set_var(key, raw);
+            applied.push(key.clone());
+        }
+        applied
+    }
 }
 
 impl RuntimeFeatureConfig {
@@ -460,6 +528,16 @@ impl RuntimeFeatureConfig {
     #[must_use]
     pub fn trusted_roots(&self) -> &[String] {
         &self.trusted_roots
+    }
+
+    #[must_use]
+    pub fn anthropic_credentials(&self) -> &AnthropicCredentialsConfig {
+        &self.anthropic_credentials
+    }
+
+    #[must_use]
+    pub fn request_headers(&self) -> &BTreeMap<String, String> {
+        &self.request_headers
     }
 }
 
@@ -536,7 +614,7 @@ impl RuntimePluginConfig {
 #[must_use]
 /// Returns the default per-user config directory used by the runtime.
 pub fn default_config_home() -> PathBuf {
-    std::env::var_os("CLAW_CONFIG_HOME")
+    std::env::var_os("MYCLI_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".mycli")))
         .unwrap_or_else(|| PathBuf::from(".mycli"))
@@ -650,7 +728,6 @@ struct ParsedConfigFile {
 }
 
 fn read_optional_json_object(path: &Path) -> Result<Option<ParsedConfigFile>, ConfigError> {
-    let is_legacy_config = path.file_name().and_then(|name| name.to_str()) == Some(".mycli.json");
     let contents = match fs::read_to_string(path) {
         Ok(contents) => contents,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -664,15 +741,9 @@ fn read_optional_json_object(path: &Path) -> Result<Option<ParsedConfigFile>, Co
         }));
     }
 
-    let parsed = match JsonValue::parse(&contents) {
-        Ok(parsed) => parsed,
-        Err(_error) if is_legacy_config => return Ok(None),
-        Err(error) => return Err(ConfigError::Parse(format!("{}: {error}", path.display()))),
-    };
+    let parsed = JsonValue::parse(&contents)
+        .map_err(|error| ConfigError::Parse(format!("{}: {error}", path.display())))?;
     let Some(object) = parsed.as_object() else {
-        if is_legacy_config {
-            return Ok(None);
-        }
         return Err(ConfigError::Parse(format!(
             "{}: top-level settings value must be a JSON object",
             path.display()
@@ -901,6 +972,49 @@ fn parse_filesystem_mode_label(value: &str) -> Result<FilesystemIsolationMode, C
             "merged settings.sandbox.filesystemMode: unsupported filesystem mode {other}"
         ))),
     }
+}
+
+fn parse_optional_request_headers(
+    root: &JsonValue,
+) -> Result<BTreeMap<String, String>, ConfigError> {
+    let Some(value) = root.as_object().and_then(|object| object.get("requestHeaders")) else {
+        return Ok(BTreeMap::new());
+    };
+    let context = "merged settings.requestHeaders";
+    let object = expect_object(value, context)?;
+    let mut headers = BTreeMap::new();
+    for (key, raw) in object {
+        let Some(str_value) = raw.as_str() else {
+            return Err(ConfigError::Parse(format!(
+                "{context}: field {key} must be a string"
+            )));
+        };
+        if str_value.is_empty() {
+            continue;
+        }
+        headers.insert(key.clone(), str_value.to_string());
+    }
+    Ok(headers)
+}
+
+fn parse_optional_anthropic_credentials(
+    root: &JsonValue,
+) -> Result<AnthropicCredentialsConfig, ConfigError> {
+    let Some(value) = root.as_object().and_then(|object| object.get("anthropic")) else {
+        return Ok(AnthropicCredentialsConfig::default());
+    };
+    let context = "merged settings.anthropic";
+    let object = expect_object(value, context)?;
+    let api_key = optional_string(object, "apiKey", context)?
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let auth_token = optional_string(object, "authToken", context)?
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    Ok(AnthropicCredentialsConfig {
+        api_key,
+        auth_token,
+    })
 }
 
 fn parse_optional_oauth_config(
@@ -1269,38 +1383,24 @@ mod tests {
         fs::create_dir_all(&home).expect("home config dir");
 
         fs::write(
-            home.parent().expect("home parent").join(".claw.json"),
-            r#"{"model":"haiku","env":{"A":"1"},"mcpServers":{"home":{"command":"uvx","args":["home"]}}}"#,
-        )
-        .expect("write user compat config");
-        fs::write(
             home.join("settings.json"),
-            r#"{"model":"sonnet","env":{"A2":"1"},"hooks":{"PreToolUse":["base"]},"permissions":{"defaultMode":"plan","allow":["Read"],"deny":["Bash(rm -rf)"]}}"#,
+            r#"{"model":"sonnet","env":{"A2":"1"},"hooks":{"PreToolUse":["base"]},"permissions":{"defaultMode":"plan","allow":["Read"],"deny":["Bash(rm -rf)"]},"mcpServers":{"home":{"command":"uvx","args":["home"]}}}"#,
         )
         .expect("write user settings");
         fs::write(
-            cwd.join(".claw.json"),
-            r#"{"model":"project-compat","env":{"B":"2"}}"#,
-        )
-        .expect("write project compat config");
-        fs::write(
             cwd.join(".mycli").join("settings.json"),
-            r#"{"env":{"C":"3"},"hooks":{"PostToolUse":["project"],"PostToolUseFailure":["project-failure"]},"permissions":{"ask":["Edit"]},"mcpServers":{"project":{"command":"uvx","args":["project"]}}}"#,
+            r#"{"model":"opus","permissionMode":"acceptEdits","env":{"C":"3"},"hooks":{"PostToolUse":["project"],"PostToolUseFailure":["project-failure"]},"permissions":{"ask":["Edit"]},"mcpServers":{"project":{"command":"uvx","args":["project"]}}}"#,
         )
         .expect("write project settings");
-        fs::write(
-            cwd.join(".mycli").join("settings.local.json"),
-            r#"{"model":"opus","permissionMode":"acceptEdits"}"#,
-        )
-        .expect("write local settings");
 
         let loaded = ConfigLoader::new(&cwd, &home)
             .load()
             .expect("config should load");
 
         assert_eq!(CLAW_SETTINGS_SCHEMA_NAME, "SettingsSchema");
-        assert_eq!(loaded.loaded_entries().len(), 5);
+        assert_eq!(loaded.loaded_entries().len(), 2);
         assert_eq!(loaded.loaded_entries()[0].source, ConfigSource::User);
+        assert_eq!(loaded.loaded_entries()[1].source, ConfigSource::Project);
         assert_eq!(
             loaded.get("model"),
             Some(&JsonValue::String("opus".to_string()))
@@ -1316,7 +1416,7 @@ mod tests {
                 .and_then(JsonValue::as_object)
                 .expect("env object")
                 .len(),
-            4
+            2
         );
         assert!(loaded
             .get("hooks")
@@ -1355,7 +1455,7 @@ mod tests {
         fs::create_dir_all(&home).expect("home config dir");
 
         fs::write(
-            cwd.join(".mycli").join("settings.local.json"),
+            cwd.join(".mycli").join("settings.json"),
             r#"{
               "sandbox": {
                 "enabled": true,
@@ -1366,7 +1466,7 @@ mod tests {
               }
             }"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         let loaded = ConfigLoader::new(&cwd, &home)
             .load()
@@ -1440,6 +1540,169 @@ mod tests {
         assert_eq!(chain.primary(), None);
         assert!(chain.fallbacks().is_empty());
         assert!(chain.is_empty());
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn parses_anthropic_credentials_from_settings() {
+        // given
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{"anthropic": {"apiKey": "sk-ant-user", "authToken": "bearer-user"}}"#,
+        )
+        .expect("write settings");
+
+        // when
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+
+        // then
+        let creds = loaded.anthropic_credentials();
+        assert_eq!(creds.api_key(), Some("sk-ant-user"));
+        assert_eq!(creds.auth_token(), Some("bearer-user"));
+        assert!(!creds.is_empty());
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn anthropic_credentials_default_empty_when_unset() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(home.join("settings.json"), "{}").expect("write empty settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+
+        let creds = loaded.anthropic_credentials();
+        assert!(creds.is_empty());
+        assert_eq!(creds.api_key(), None);
+        assert_eq!(creds.auth_token(), None);
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn apply_env_vars_projects_string_entries_into_process_environment() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        // Use key names unique enough to avoid colliding with real process env.
+        let key_a = format!("MYCLI_APPLY_ENV_TEST_A_{}", std::process::id());
+        let key_b = format!("MYCLI_APPLY_ENV_TEST_B_{}", std::process::id());
+        let key_c = format!("MYCLI_APPLY_ENV_TEST_SKIPPED_{}", std::process::id());
+        let body = format!(
+            r#"{{"env":{{"{key_a}":"value-a","{key_b}":"value-b","{key_c}":123}}}}"#
+        );
+        fs::write(home.join("settings.json"), &body).expect("write settings");
+
+        std::env::remove_var(&key_a);
+        std::env::remove_var(&key_b);
+        std::env::remove_var(&key_c);
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+        let applied = loaded.apply_env_vars();
+
+        assert!(applied.contains(&key_a));
+        assert!(applied.contains(&key_b));
+        assert!(
+            !applied.contains(&key_c),
+            "non-string values should be skipped"
+        );
+        assert_eq!(std::env::var(&key_a).as_deref(), Ok("value-a"));
+        assert_eq!(std::env::var(&key_b).as_deref(), Ok("value-b"));
+        assert!(std::env::var(&key_c).is_err());
+
+        std::env::remove_var(&key_a);
+        std::env::remove_var(&key_b);
+        std::env::remove_var(&key_c);
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn parses_request_headers_from_settings() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{"requestHeaders": {"X-Title": "my-cli", "HTTP-Referer": "https://my-cli.dev", "X-Empty": ""}}"#,
+        )
+        .expect("write settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+
+        let headers = loaded.request_headers();
+        assert_eq!(headers.get("X-Title").map(String::as_str), Some("my-cli"));
+        assert_eq!(
+            headers.get("HTTP-Referer").map(String::as_str),
+            Some("https://my-cli.dev")
+        );
+        assert!(
+            !headers.contains_key("X-Empty"),
+            "empty-string headers should be skipped"
+        );
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn request_headers_rejects_non_string_values() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{"requestHeaders": {"X-Bad": 42}}"#,
+        )
+        .expect("write settings");
+
+        let error = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect_err("non-string header value should be rejected");
+        let msg = error.to_string();
+        assert!(
+            msg.contains("requestHeaders") && msg.contains("must be a string"),
+            "error should name the bad field: {msg}"
+        );
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn apply_env_vars_is_noop_when_env_object_missing() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(home.join("settings.json"), r#"{"model":"sonnet"}"#).expect("write settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+        assert!(loaded.apply_env_vars().is_empty());
 
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }
@@ -1533,7 +1796,7 @@ mod tests {
         )
         .expect("write user settings");
         fs::write(
-            cwd.join(".mycli").join("settings.local.json"),
+            cwd.join(".mycli").join("settings.json"),
             r#"{
               "mcpServers": {
                 "remote-server": {
@@ -1544,7 +1807,7 @@ mod tests {
               }
             }"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         let loaded = ConfigLoader::new(&cwd, &home)
             .load()
@@ -1561,7 +1824,7 @@ mod tests {
             .mcp()
             .get("remote-server")
             .expect("remote server should exist");
-        assert_eq!(remote_server.scope, ConfigSource::Local);
+        assert_eq!(remote_server.scope, ConfigSource::Project);
         assert_eq!(remote_server.transport(), McpTransport::Ws);
         match &remote_server.config {
             McpServerConfig::Ws(config) => {
@@ -1752,10 +2015,10 @@ mod tests {
         )
         .expect("write user settings");
         fs::write(
-            cwd.join(".mycli").join("settings.local.json"),
+            cwd.join(".mycli").join("settings.json"),
             r#"{"aliases":{"smart":"claude-sonnet-4-6","cheap":"grok-3-mini"}}"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         // when
         let loaded = ConfigLoader::new(&cwd, &home)

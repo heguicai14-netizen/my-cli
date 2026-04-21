@@ -800,9 +800,9 @@ mod tests {
         ensure_valid_cwd();
         let previous = std::env::current_dir().expect("cwd");
         let original_home = std::env::var("HOME").ok();
-        let original_claw_home = std::env::var("CLAW_CONFIG_HOME").ok();
+        let original_claw_home = std::env::var("MYCLI_CONFIG_HOME").ok();
         std::env::set_var("HOME", &root);
-        std::env::set_var("CLAW_CONFIG_HOME", root.join("missing-home"));
+        std::env::set_var("MYCLI_CONFIG_HOME", root.join("missing-home"));
         std::env::set_current_dir(&root).expect("change cwd");
         let prompt = super::load_system_prompt(&root, "2026-03-31", "linux", "6.8")
             .expect("system prompt should load")
@@ -818,9 +818,9 @@ mod tests {
             std::env::remove_var("HOME");
         }
         if let Some(value) = original_claw_home {
-            std::env::set_var("CLAW_CONFIG_HOME", value);
+            std::env::set_var("MYCLI_CONFIG_HOME", value);
         } else {
-            std::env::remove_var("CLAW_CONFIG_HOME");
+            std::env::remove_var("MYCLI_CONFIG_HOME");
         }
 
         assert!(prompt.contains("Project rules"));

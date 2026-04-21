@@ -1389,7 +1389,7 @@ pub fn validate_slash_command_input(
         }
         "login" | "logout" => {
             return Err(command_error(
-                "This auth flow was removed. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN instead.",
+                "This auth flow was removed. Set `anthropic.apiKey` or `anthropic.authToken` in ~/.mycli/settings.json instead.",
                 command,
                 "",
             ));
@@ -2742,7 +2742,7 @@ fn discover_definition_roots(cwd: &Path, leaf: &str) -> Vec<(DefinitionSource, P
         );
     }
 
-    if let Ok(claw_config_home) = env::var("CLAW_CONFIG_HOME") {
+    if let Ok(claw_config_home) = env::var("MYCLI_CONFIG_HOME") {
         push_unique_root(
             &mut roots,
             DefinitionSource::UserClawConfigHome,
@@ -2843,7 +2843,7 @@ fn discover_skill_roots(cwd: &Path) -> Vec<SkillRoot> {
         );
     }
 
-    if let Ok(claw_config_home) = env::var("CLAW_CONFIG_HOME") {
+    if let Ok(claw_config_home) = env::var("MYCLI_CONFIG_HOME") {
         let claw_config_home = PathBuf::from(claw_config_home);
         push_unique_skill_root(
             &mut roots,
@@ -3006,7 +3006,7 @@ fn install_skill_into(
 }
 
 fn default_skill_install_root() -> std::io::Result<PathBuf> {
-    if let Ok(claw_config_home) = env::var("CLAW_CONFIG_HOME") {
+    if let Ok(claw_config_home) = env::var("MYCLI_CONFIG_HOME") {
         return Ok(PathBuf::from(claw_config_home).join("skills"));
     }
     if let Ok(codex_home) = env::var("CODEX_HOME") {
@@ -3017,7 +3017,7 @@ fn default_skill_install_root() -> std::io::Result<PathBuf> {
     }
     Err(std::io::Error::new(
         std::io::ErrorKind::NotFound,
-        "unable to resolve a skills install root; set CLAW_CONFIG_HOME or HOME",
+        "unable to resolve a skills install root; set MYCLI_CONFIG_HOME or HOME",
     ))
 }
 
@@ -3709,7 +3709,7 @@ fn render_agents_usage(unexpected: Option<&str>) -> String {
         "Agents".to_string(),
         "  Usage            /agents [list|help]".to_string(),
         "  Direct CLI       claw agents".to_string(),
-        "  Sources          .claw/agents, ~/.claw/agents, $CLAW_CONFIG_HOME/agents".to_string(),
+        "  Sources          .claw/agents, ~/.claw/agents, $MYCLI_CONFIG_HOME/agents".to_string(),
     ];
     if let Some(args) = unexpected {
         lines.push(format!("  Unexpected       {args}"));
@@ -3724,7 +3724,7 @@ fn render_agents_usage_json(unexpected: Option<&str>) -> Value {
         "usage": {
             "slash_command": "/agents [list|help]",
             "direct_cli": "claw agents [list|help]",
-            "sources": [".claw/agents", "~/.claw/agents", "$CLAW_CONFIG_HOME/agents"],
+            "sources": [".claw/agents", "~/.claw/agents", "$MYCLI_CONFIG_HOME/agents"],
         },
         "unexpected": unexpected,
     })
@@ -3737,7 +3737,7 @@ fn render_skills_usage(unexpected: Option<&str>) -> String {
         "  Alias            /skill".to_string(),
         "  Direct CLI       claw skills [list|install <path>|help|<skill> [args]]".to_string(),
         "  Invoke           /skills help overview -> $help overview".to_string(),
-        "  Install root     $CLAW_CONFIG_HOME/skills or ~/.claw/skills".to_string(),
+        "  Install root     $MYCLI_CONFIG_HOME/skills or ~/.claw/skills".to_string(),
         "  Sources          .claw/skills, .omc/skills, .agents/skills, .codex/skills, .claude/skills, ~/.claw/skills, ~/.omc/skills, ~/.claude/skills/omc-learned, ~/.codex/skills, ~/.claude/skills, legacy /commands".to_string(),
     ];
     if let Some(args) = unexpected {
@@ -3755,7 +3755,7 @@ fn render_skills_usage_json(unexpected: Option<&str>) -> Value {
             "aliases": ["/skill"],
             "direct_cli": "claw skills [list|install <path>|help|<skill> [args]]",
             "invoke": "/skills help overview -> $help overview",
-            "install_root": "$CLAW_CONFIG_HOME/skills or ~/.claw/skills",
+            "install_root": "$MYCLI_CONFIG_HOME/skills or ~/.claw/skills",
             "sources": [
                 ".claw/skills",
                 ".omc/skills",
@@ -3780,7 +3780,7 @@ fn render_mcp_usage(unexpected: Option<&str>) -> String {
         "MCP".to_string(),
         "  Usage            /mcp [list|show <server>|help]".to_string(),
         "  Direct CLI       claw mcp [list|show <server>|help]".to_string(),
-        "  Sources          .claw/settings.json, .claw/settings.local.json".to_string(),
+        "  Sources          .mycli/settings.json".to_string(),
     ];
     if let Some(args) = unexpected {
         lines.push(format!("  Unexpected       {args}"));
@@ -3795,7 +3795,7 @@ fn render_mcp_usage_json(unexpected: Option<&str>) -> Value {
         "usage": {
             "slash_command": "/mcp [list|show <server>|help]",
             "direct_cli": "claw mcp [list|show <server>|help]",
-            "sources": [".claw/settings.json", ".claw/settings.local.json"],
+            "sources": [".mycli/settings.json"],
         },
         "unexpected": unexpected,
     })
@@ -4599,11 +4599,11 @@ mod tests {
     }
 
     #[test]
-    fn removed_login_and_logout_commands_report_env_auth_guidance() {
+    fn removed_login_and_logout_commands_report_config_auth_guidance() {
         let login_error = parse_error_message("/login");
-        assert!(login_error.contains("ANTHROPIC_API_KEY"));
+        assert!(login_error.contains("anthropic.apiKey"));
         let logout_error = parse_error_message("/logout");
-        assert!(logout_error.contains("ANTHROPIC_AUTH_TOKEN"));
+        assert!(logout_error.contains("anthropic.authToken"));
     }
 
     #[test]
@@ -5181,7 +5181,7 @@ mod tests {
         assert!(agents_help.contains("Usage            /agents [list|help]"));
         assert!(agents_help.contains("Direct CLI       claw agents"));
         assert!(agents_help
-            .contains("Sources          .claw/agents, ~/.claw/agents, $CLAW_CONFIG_HOME/agents"));
+            .contains("Sources          .claw/agents, ~/.claw/agents, $MYCLI_CONFIG_HOME/agents"));
 
         let agents_unexpected =
             super::handle_agents_slash_command(Some("show planner"), &cwd).expect("agents usage");
@@ -5193,7 +5193,7 @@ mod tests {
             .contains("Usage            /skills [list|install <path>|help|<skill> [args]]"));
         assert!(skills_help.contains("Alias            /skill"));
         assert!(skills_help.contains("Invoke           /skills help overview -> $help overview"));
-        assert!(skills_help.contains("Install root     $CLAW_CONFIG_HOME/skills or ~/.claw/skills"));
+        assert!(skills_help.contains("Install root     $MYCLI_CONFIG_HOME/skills or ~/.claw/skills"));
         assert!(skills_help.contains(".omc/skills"));
         assert!(skills_help.contains(".agents/skills"));
         assert!(skills_help.contains("~/.claude/skills/omc-learned"));
@@ -5329,7 +5329,7 @@ mod tests {
         fs::create_dir_all(workspace.join(".mycli")).expect("workspace config dir");
         fs::create_dir_all(&config_home).expect("config home");
         fs::write(
-            workspace.join(".mycli").join("settings.json"),
+            config_home.join("settings.json"),
             r#"{
               "mcpServers": {
                 "alpha": {
@@ -5351,9 +5351,9 @@ mod tests {
               }
             }"#,
         )
-        .expect("write settings");
+        .expect("write user settings");
         fs::write(
-            workspace.join(".mycli").join("settings.local.json"),
+            workspace.join(".mycli").join("settings.json"),
             r#"{
               "mcpServers": {
                 "remote": {
@@ -5363,7 +5363,7 @@ mod tests {
               }
             }"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         let loader = ConfigLoader::new(&workspace, &config_home);
         let list = super::render_mcp_report_for(&loader, &workspace, None)
@@ -5371,11 +5371,11 @@ mod tests {
         assert!(list.contains("Configured servers 2"));
         assert!(list.contains("alpha"));
         assert!(list.contains("stdio"));
-        assert!(list.contains("project"));
+        assert!(list.contains("user"));
         assert!(list.contains("uvx alpha-server"));
         assert!(list.contains("remote"));
         assert!(list.contains("ws"));
-        assert!(list.contains("local"));
+        assert!(list.contains("project"));
         assert!(list.contains("wss://remote.example/mcp"));
 
         let show = super::render_mcp_report_for(&loader, &workspace, Some("show alpha"))
@@ -5406,7 +5406,7 @@ mod tests {
         fs::create_dir_all(workspace.join(".mycli")).expect("workspace config dir");
         fs::create_dir_all(&config_home).expect("config home");
         fs::write(
-            workspace.join(".mycli").join("settings.json"),
+            config_home.join("settings.json"),
             r#"{
               "mcpServers": {
                 "alpha": {
@@ -5428,9 +5428,9 @@ mod tests {
               }
             }"#,
         )
-        .expect("write settings");
+        .expect("write user settings");
         fs::write(
-            workspace.join(".mycli").join("settings.local.json"),
+            workspace.join(".mycli").join("settings.json"),
             r#"{
               "mcpServers": {
                 "remote": {
@@ -5440,7 +5440,7 @@ mod tests {
               }
             }"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         let loader = ConfigLoader::new(&workspace, &config_home);
         let list =
@@ -5452,7 +5452,7 @@ mod tests {
         assert_eq!(list["servers"][0]["transport"]["id"], "stdio");
         assert_eq!(list["servers"][0]["details"]["command"], "uvx");
         assert_eq!(list["servers"][1]["name"], "remote");
-        assert_eq!(list["servers"][1]["scope"]["id"], "local");
+        assert_eq!(list["servers"][1]["scope"]["id"], "project");
         assert_eq!(list["servers"][1]["transport"]["id"], "ws");
         assert_eq!(
             list["servers"][1]["details"]["url"],
@@ -5475,7 +5475,7 @@ mod tests {
         let help =
             render_mcp_report_json_for(&loader, &workspace, Some("help")).expect("mcp help json");
         assert_eq!(help["action"], "help");
-        assert_eq!(help["usage"]["sources"][0], ".claw/settings.json");
+        assert_eq!(help["usage"]["sources"][0], ".mycli/settings.json");
 
         let _ = fs::remove_dir_all(workspace);
         let _ = fs::remove_dir_all(config_home);

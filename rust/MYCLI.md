@@ -11,5 +11,5 @@ This file provides guidance to My CLI (my-cli.dev) when working with code in thi
 
 ## Working agreement
 - Prefer small, reviewable changes and keep generated bootstrap files aligned with actual repo workflows.
-- Keep shared defaults in `.mycli.json`; reserve `.mycli/settings.local.json` for machine-local overrides.
+- Keep shared defaults in `.mycli/settings.json`; it is the only configuration file loaded from the repo.
 - Do not overwrite existing `MYCLI.md` content automatically; update it intentionally when repo workflows change.
