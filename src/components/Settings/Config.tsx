@@ -120,6 +120,7 @@ export function Config({
   const paneCap = contentHeight ?? Math.min(Math.floor(rows * 0.8), 30);
   const maxVisible = Math.max(5, paneCap - 10);
   const mainLoopModel = useAppState(s => s.mainLoopModel);
+  const mainLoopModelForSession = useAppState(s => s.mainLoopModelForSession);
   const verbose = useAppState(s_0 => s_0.verbose);
   const thinkingEnabled = useAppState(s_1 => s_1.thinkingEnabled);
   const isFastMode = useAppState(s_2 => isFastModeEnabled() ? s_2.fastMode : false);

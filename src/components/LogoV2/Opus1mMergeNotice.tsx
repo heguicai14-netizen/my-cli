@@ -8,7 +8,7 @@ import { isOpus1mMergeEnabled } from '../../utils/model/model.js';
 import { AnimatedAsterisk } from './AnimatedAsterisk.js';
 const MAX_SHOW_COUNT = 6;
 export function shouldShowOpus1mMergeNotice(): boolean {
-  return isOpus1mMergeEnabled() && (getGlobalConfig().opus1mMergeNoticeSeenCount ?? 0) < MAX_SHOW_COUNT;
+  return false;
 }
 export function Opus1mMergeNotice() {
   const $ = _c(4);
