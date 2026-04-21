@@ -360,7 +360,7 @@ export async function getAnthropicClient({
 
 async function configureApiKeyHeaders(
   headers: Record<string, string>,
-  isNonInteractiveSession: boolean,
+  _isNonInteractiveSession: boolean,
 ): Promise<void> {
   const activeProvider = getActiveProviderConfig()
   const token =
@@ -368,8 +368,7 @@ async function configureApiKeyHeaders(
     (isOpenAICompatibleProviderType(activeProvider.type)
       ? getConfiguredProviderApiKey()
       : undefined) ||
-    process.env.ANTHROPIC_AUTH_TOKEN ||
-    (await getApiKeyFromApiKeyHelper(isNonInteractiveSession))
+    getAnthropicApiKey()
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }

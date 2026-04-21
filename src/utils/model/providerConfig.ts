@@ -1,7 +1,10 @@
 import { getDefaultVertexRegion, getAWSRegion, isEnvTruthy } from '../envUtils.js'
 import { getGitHubCopilotApiUrl } from '../github/copilotApi.js'
 import { getGitHubAuthToken } from '../github/ghAuthToken.js'
-import { getInitialSettings } from '../settings/settings.js'
+import {
+  getInitialSettings,
+  getSettings_DEPRECATED,
+} from '../settings/settings.js'
 import type { ProviderConfig } from '../settings/types.js'
 
 export type ConfiguredProviderType =
@@ -345,6 +348,9 @@ export function getProviderDisplayName(): string {
 }
 
 export function getConfiguredAnthropicBaseUrl(): string | undefined {
+  const settings = getSettings_DEPRECATED()
+  if (settings?.baseUrl) return settings.baseUrl
+
   const provider = getActiveProviderConfig()
   return provider.type === 'firstParty' ||
     provider.type === 'anthropic-compatible'

@@ -66,44 +66,47 @@
   bun run version
   ```
 
-  ## Provider support
+  ## Authentication
 
-  The restored CLI now has an initial multi-provider path for GitHub-backed inference.
+  The auth module has been removed. Credentials are read exclusively from
+  `~/.mycli/settings.json` — no OAuth, no macOS keychain, no environment
+  variable discovery, no interactive login.
 
-  Supported providers today:
+  Minimum settings to start:
 
-  - `github-models`: OpenAI-compatible GitHub Models endpoint
-  - `github-copilot`: GitHub Copilot account-backed endpoint for Copilot-hosted Claude models
-
-  Authentication lookup order for both providers is:
-
-  - provider-specific env var
-  - `GH_TOKEN`
-  - `GITHUB_TOKEN`
-  - `gh auth token`
-
-  Log in with GitHub CLI first if you want account-style auth instead of manually setting a token:
-
-  ```bash
-  gh auth login
+  ```json
+  {
+    "apiKey": "sk-...",
+    "baseUrl": "https://api.anthropic.com",
+    "model": "claude-sonnet-4-6"
+  }
   ```
 
-  Use GitHub Models with the mycli runtime:
+  - `apiKey` — sent as `Authorization: Bearer <value>` on every request.
+  - `baseUrl` — override for self-hosted proxies, OpenAI-compatible
+    gateways, or alternative model backends. Optional.
+  - `model` — default model ID. Overridable per-session with `--model`.
+
+  Point `baseUrl` at any OpenAI- or Anthropic-compatible endpoint (Ollama,
+  LiteLLM, self-hosted proxies, third-party Claude gateways, etc.) to use
+  non-Anthropic models.
+
+  The `claude auth login` / `logout` / `setup-token` / `install-github-app`
+  subcommands and the `/login`, `/logout`, `/oauth-refresh` slash commands
+  have been removed. If you previously authenticated via the Anthropic
+  subscription OAuth flow, export your API key from
+  [console.anthropic.com](https://console.anthropic.com/) and drop it into
+  `~/.mycli/settings.json`.
+
+  ### Alternative provider paths
+
+  `provider` in settings.json still works for OpenAI-compatible routing
+  (GitHub Models, GitHub Copilot, custom gateways). For those paths the
+  provider-specific API key / bearer token lives in the provider config
+  block, not in the top-level `apiKey`.
 
   ```bash
-  bun run dev --settings '{"provider":"github-models"}'
-  ```
-
-  Or choose a specific GitHub Models model:
-
-  ```bash
-  bun run dev --settings '{"provider":"github-models"}' --model "openai/gpt-4.1"
-  ```
-
-  Use GitHub Copilot with the mycli runtime:
-
-  ```bash
-  bun run dev --settings '{"provider":"github-copilot"}'
+  bun run dev --settings '{"provider":"github-models","apiKey":"ghp_..."}'
   ```
 
   You can also switch providers interactively inside the CLI:

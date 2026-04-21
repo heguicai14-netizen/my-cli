@@ -292,6 +292,28 @@ export const SettingsSchema = lazySchema(() =>
         .string()
         .optional()
         .describe('Path to a script that outputs authentication values'),
+      apiKey: z
+        .string()
+        .optional()
+        .describe(
+          'Bearer token / API key sent as Authorization: Bearer <value>. ' +
+            'Primary credential source — read from ~/.mycli/settings.json.',
+        ),
+      baseUrl: z
+        .string()
+        .url()
+        .optional()
+        .describe(
+          'Override the API base URL. Use for self-hosted proxies, ' +
+            'OpenAI-compatible gateways, or alternative model backends.',
+        ),
+      model: z
+        .string()
+        .optional()
+        .describe(
+          'Default model ID to send in API requests (e.g. "claude-sonnet-4-6", ' +
+            '"gpt-4.1"). Overrideable per-session via --model.',
+        ),
       awsCredentialExport: z
         .string()
         .optional()
