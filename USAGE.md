@@ -226,7 +226,7 @@ Any model name that does not match an alias is passed through verbatim. This is 
 
 ### User-defined aliases
 
-You can add custom aliases in any settings file (`~/.claw/settings.json`, `.claw/settings.json`, or `.claw/settings.local.json`):
+You can add custom aliases in either settings file (`~/.mycli/settings.json` or `<repo>/.mycli/settings.json`):
 
 ```json
 {
@@ -330,11 +330,10 @@ Useful interactive commands include `/help`, `/status`, `/cost`, `/config`, `/se
 
 Runtime config is loaded in this order, with later entries overriding earlier ones:
 
-1. `~/.claw.json`
-2. `~/.config/claw/settings.json`
-3. `<repo>/.claw.json`
-4. `<repo>/.claw/settings.json`
-5. `<repo>/.claw/settings.local.json`
+1. `~/.mycli/settings.json` (override the directory with `CLAW_CONFIG_HOME`)
+2. `<repo>/.mycli/settings.json`
+
+No other files are loaded — legacy `.mycli.json` and `.mycli/settings.local.json` files are ignored.
 
 ## Mock parity harness
 

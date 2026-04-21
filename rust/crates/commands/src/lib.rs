@@ -3780,7 +3780,7 @@ fn render_mcp_usage(unexpected: Option<&str>) -> String {
         "MCP".to_string(),
         "  Usage            /mcp [list|show <server>|help]".to_string(),
         "  Direct CLI       claw mcp [list|show <server>|help]".to_string(),
-        "  Sources          .claw/settings.json, .claw/settings.local.json".to_string(),
+        "  Sources          .mycli/settings.json".to_string(),
     ];
     if let Some(args) = unexpected {
         lines.push(format!("  Unexpected       {args}"));
@@ -3795,7 +3795,7 @@ fn render_mcp_usage_json(unexpected: Option<&str>) -> Value {
         "usage": {
             "slash_command": "/mcp [list|show <server>|help]",
             "direct_cli": "claw mcp [list|show <server>|help]",
-            "sources": [".claw/settings.json", ".claw/settings.local.json"],
+            "sources": [".mycli/settings.json"],
         },
         "unexpected": unexpected,
     })
@@ -5329,7 +5329,7 @@ mod tests {
         fs::create_dir_all(workspace.join(".mycli")).expect("workspace config dir");
         fs::create_dir_all(&config_home).expect("config home");
         fs::write(
-            workspace.join(".mycli").join("settings.json"),
+            config_home.join("settings.json"),
             r#"{
               "mcpServers": {
                 "alpha": {
@@ -5351,9 +5351,9 @@ mod tests {
               }
             }"#,
         )
-        .expect("write settings");
+        .expect("write user settings");
         fs::write(
-            workspace.join(".mycli").join("settings.local.json"),
+            workspace.join(".mycli").join("settings.json"),
             r#"{
               "mcpServers": {
                 "remote": {
@@ -5363,7 +5363,7 @@ mod tests {
               }
             }"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         let loader = ConfigLoader::new(&workspace, &config_home);
         let list = super::render_mcp_report_for(&loader, &workspace, None)
@@ -5371,11 +5371,11 @@ mod tests {
         assert!(list.contains("Configured servers 2"));
         assert!(list.contains("alpha"));
         assert!(list.contains("stdio"));
-        assert!(list.contains("project"));
+        assert!(list.contains("user"));
         assert!(list.contains("uvx alpha-server"));
         assert!(list.contains("remote"));
         assert!(list.contains("ws"));
-        assert!(list.contains("local"));
+        assert!(list.contains("project"));
         assert!(list.contains("wss://remote.example/mcp"));
 
         let show = super::render_mcp_report_for(&loader, &workspace, Some("show alpha"))
@@ -5406,7 +5406,7 @@ mod tests {
         fs::create_dir_all(workspace.join(".mycli")).expect("workspace config dir");
         fs::create_dir_all(&config_home).expect("config home");
         fs::write(
-            workspace.join(".mycli").join("settings.json"),
+            config_home.join("settings.json"),
             r#"{
               "mcpServers": {
                 "alpha": {
@@ -5428,9 +5428,9 @@ mod tests {
               }
             }"#,
         )
-        .expect("write settings");
+        .expect("write user settings");
         fs::write(
-            workspace.join(".mycli").join("settings.local.json"),
+            workspace.join(".mycli").join("settings.json"),
             r#"{
               "mcpServers": {
                 "remote": {
@@ -5440,7 +5440,7 @@ mod tests {
               }
             }"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         let loader = ConfigLoader::new(&workspace, &config_home);
         let list =
@@ -5452,7 +5452,7 @@ mod tests {
         assert_eq!(list["servers"][0]["transport"]["id"], "stdio");
         assert_eq!(list["servers"][0]["details"]["command"], "uvx");
         assert_eq!(list["servers"][1]["name"], "remote");
-        assert_eq!(list["servers"][1]["scope"]["id"], "local");
+        assert_eq!(list["servers"][1]["scope"]["id"], "project");
         assert_eq!(list["servers"][1]["transport"]["id"], "ws");
         assert_eq!(
             list["servers"][1]["details"]["url"],
@@ -5475,7 +5475,7 @@ mod tests {
         let help =
             render_mcp_report_json_for(&loader, &workspace, Some("help")).expect("mcp help json");
         assert_eq!(help["action"], "help");
-        assert_eq!(help["usage"]["sources"][0], ".claw/settings.json");
+        assert_eq!(help["usage"]["sources"][0], ".mycli/settings.json");
 
         let _ = fs::remove_dir_all(workspace);
         let _ = fs::remove_dir_all(config_home);

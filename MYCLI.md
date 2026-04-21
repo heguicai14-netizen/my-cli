@@ -89,7 +89,7 @@ export ANTHROPIC_BASE_URL="https://your-proxy.com"
 - Prompts user for approval when tool requires escalation
 
 **ConfigLoader** (`runtime/src/config.rs`):
-- Loads config hierarchy: `~/.mycli.json` → `~/.config/claw/settings.json` → `<repo>/.mycli.json` → `<repo>/.mycli/settings.json` → `<repo>/.mycli/settings.local.json`
+- Loads config hierarchy: `~/.mycli/settings.json` (overridable via `CLAW_CONFIG_HOME`) → `<repo>/.mycli/settings.json`
 - Later entries override earlier ones
 
 **McpServerManager** (`runtime/src/mcp_server.rs`):
@@ -124,7 +124,7 @@ Default model: `claude-opus-4-6`
 
 ## Config Files
 
-Keep shared defaults in `.mycli.json` at repo root. Use `.mycli/settings.local.json` for machine-local overrides (gitignored). Never commit API keys or tokens.
+Keep shared defaults in `<repo>/.mycli/settings.json`. User-level defaults live in `~/.mycli/settings.json` (override the directory with `CLAW_CONFIG_HOME`). No other config files are loaded. Never commit API keys or tokens.
 
 ## Development Workflow
 

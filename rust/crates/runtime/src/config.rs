@@ -240,10 +240,16 @@ impl ConfigLoader {
 
     #[must_use]
     pub fn discover(&self) -> Vec<ConfigEntry> {
-        vec![ConfigEntry {
-            source: ConfigSource::User,
-            path: self.config_home.join("settings.json"),
-        }]
+        vec![
+            ConfigEntry {
+                source: ConfigSource::User,
+                path: self.config_home.join("settings.json"),
+            },
+            ConfigEntry {
+                source: ConfigSource::Project,
+                path: self.cwd.join(".mycli").join("settings.json"),
+            },
+        ]
     }
 
     pub fn load(&self) -> Result<RuntimeConfig, ConfigError> {
@@ -650,7 +656,6 @@ struct ParsedConfigFile {
 }
 
 fn read_optional_json_object(path: &Path) -> Result<Option<ParsedConfigFile>, ConfigError> {
-    let is_legacy_config = path.file_name().and_then(|name| name.to_str()) == Some(".mycli.json");
     let contents = match fs::read_to_string(path) {
         Ok(contents) => contents,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -664,15 +669,9 @@ fn read_optional_json_object(path: &Path) -> Result<Option<ParsedConfigFile>, Co
         }));
     }
 
-    let parsed = match JsonValue::parse(&contents) {
-        Ok(parsed) => parsed,
-        Err(_error) if is_legacy_config => return Ok(None),
-        Err(error) => return Err(ConfigError::Parse(format!("{}: {error}", path.display()))),
-    };
+    let parsed = JsonValue::parse(&contents)
+        .map_err(|error| ConfigError::Parse(format!("{}: {error}", path.display())))?;
     let Some(object) = parsed.as_object() else {
-        if is_legacy_config {
-            return Ok(None);
-        }
         return Err(ConfigError::Parse(format!(
             "{}: top-level settings value must be a JSON object",
             path.display()
@@ -1269,38 +1268,24 @@ mod tests {
         fs::create_dir_all(&home).expect("home config dir");
 
         fs::write(
-            home.parent().expect("home parent").join(".claw.json"),
-            r#"{"model":"haiku","env":{"A":"1"},"mcpServers":{"home":{"command":"uvx","args":["home"]}}}"#,
-        )
-        .expect("write user compat config");
-        fs::write(
             home.join("settings.json"),
-            r#"{"model":"sonnet","env":{"A2":"1"},"hooks":{"PreToolUse":["base"]},"permissions":{"defaultMode":"plan","allow":["Read"],"deny":["Bash(rm -rf)"]}}"#,
+            r#"{"model":"sonnet","env":{"A2":"1"},"hooks":{"PreToolUse":["base"]},"permissions":{"defaultMode":"plan","allow":["Read"],"deny":["Bash(rm -rf)"]},"mcpServers":{"home":{"command":"uvx","args":["home"]}}}"#,
         )
         .expect("write user settings");
         fs::write(
-            cwd.join(".claw.json"),
-            r#"{"model":"project-compat","env":{"B":"2"}}"#,
-        )
-        .expect("write project compat config");
-        fs::write(
             cwd.join(".mycli").join("settings.json"),
-            r#"{"env":{"C":"3"},"hooks":{"PostToolUse":["project"],"PostToolUseFailure":["project-failure"]},"permissions":{"ask":["Edit"]},"mcpServers":{"project":{"command":"uvx","args":["project"]}}}"#,
+            r#"{"model":"opus","permissionMode":"acceptEdits","env":{"C":"3"},"hooks":{"PostToolUse":["project"],"PostToolUseFailure":["project-failure"]},"permissions":{"ask":["Edit"]},"mcpServers":{"project":{"command":"uvx","args":["project"]}}}"#,
         )
         .expect("write project settings");
-        fs::write(
-            cwd.join(".mycli").join("settings.local.json"),
-            r#"{"model":"opus","permissionMode":"acceptEdits"}"#,
-        )
-        .expect("write local settings");
 
         let loaded = ConfigLoader::new(&cwd, &home)
             .load()
             .expect("config should load");
 
         assert_eq!(CLAW_SETTINGS_SCHEMA_NAME, "SettingsSchema");
-        assert_eq!(loaded.loaded_entries().len(), 5);
+        assert_eq!(loaded.loaded_entries().len(), 2);
         assert_eq!(loaded.loaded_entries()[0].source, ConfigSource::User);
+        assert_eq!(loaded.loaded_entries()[1].source, ConfigSource::Project);
         assert_eq!(
             loaded.get("model"),
             Some(&JsonValue::String("opus".to_string()))
@@ -1316,7 +1301,7 @@ mod tests {
                 .and_then(JsonValue::as_object)
                 .expect("env object")
                 .len(),
-            4
+            2
         );
         assert!(loaded
             .get("hooks")
@@ -1355,7 +1340,7 @@ mod tests {
         fs::create_dir_all(&home).expect("home config dir");
 
         fs::write(
-            cwd.join(".mycli").join("settings.local.json"),
+            cwd.join(".mycli").join("settings.json"),
             r#"{
               "sandbox": {
                 "enabled": true,
@@ -1366,7 +1351,7 @@ mod tests {
               }
             }"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         let loaded = ConfigLoader::new(&cwd, &home)
             .load()
@@ -1533,7 +1518,7 @@ mod tests {
         )
         .expect("write user settings");
         fs::write(
-            cwd.join(".mycli").join("settings.local.json"),
+            cwd.join(".mycli").join("settings.json"),
             r#"{
               "mcpServers": {
                 "remote-server": {
@@ -1544,7 +1529,7 @@ mod tests {
               }
             }"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         let loaded = ConfigLoader::new(&cwd, &home)
             .load()
@@ -1561,7 +1546,7 @@ mod tests {
             .mcp()
             .get("remote-server")
             .expect("remote server should exist");
-        assert_eq!(remote_server.scope, ConfigSource::Local);
+        assert_eq!(remote_server.scope, ConfigSource::Project);
         assert_eq!(remote_server.transport(), McpTransport::Ws);
         match &remote_server.config {
             McpServerConfig::Ws(config) => {
@@ -1752,10 +1737,10 @@ mod tests {
         )
         .expect("write user settings");
         fs::write(
-            cwd.join(".mycli").join("settings.local.json"),
+            cwd.join(".mycli").join("settings.json"),
             r#"{"aliases":{"smart":"claude-sonnet-4-6","cheap":"grok-3-mini"}}"#,
         )
-        .expect("write local settings");
+        .expect("write project settings");
 
         // when
         let loaded = ConfigLoader::new(&cwd, &home)

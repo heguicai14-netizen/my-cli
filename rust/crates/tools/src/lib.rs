@@ -5731,7 +5731,7 @@ fn config_file_for_scope(scope: ConfigScope) -> Result<PathBuf, String> {
     let cwd = std::env::current_dir().map_err(|error| error.to_string())?;
     Ok(match scope {
         ConfigScope::Global => config_home_dir()?.join("settings.json"),
-        ConfigScope::Settings => cwd.join(".mycli").join("settings.local.json"),
+        ConfigScope::Settings => cwd.join(".mycli").join("settings.json"),
     })
 }
 
@@ -5834,7 +5834,7 @@ fn remove_nested_value(root: &mut serde_json::Map<String, Value>, path: &[&str])
 fn plan_mode_state_file() -> Result<PathBuf, String> {
     Ok(config_file_for_scope(ConfigScope::Settings)?
         .parent()
-        .ok_or_else(|| String::from("settings.local.json has no parent directory"))?
+        .ok_or_else(|| String::from("settings.json has no parent directory"))?
         .join("tool-state")
         .join("plan-mode.json"))
 }
@@ -9053,7 +9053,7 @@ mod tests {
         std::fs::create_dir_all(home.join(".mycli")).expect("home dir");
         std::fs::create_dir_all(cwd.join(".mycli")).expect("cwd dir");
         std::fs::write(
-            cwd.join(".mycli").join("settings.local.json"),
+            cwd.join(".mycli").join("settings.json"),
             r#"{"permissions":{"defaultMode":"acceptEdits"}}"#,
         )
         .expect("write local settings");
@@ -9073,7 +9073,7 @@ mod tests {
         assert_eq!(enter_output["currentLocalMode"], "plan");
 
         let local_settings =
-            std::fs::read_to_string(cwd.join(".mycli").join("settings.local.json"))
+            std::fs::read_to_string(cwd.join(".mycli").join("settings.json"))
                 .expect("local settings after enter");
         assert!(local_settings.contains(r#""defaultMode": "plan""#));
         let state =
@@ -9090,7 +9090,7 @@ mod tests {
         assert_eq!(exit_output["currentLocalMode"], "acceptEdits");
 
         let local_settings =
-            std::fs::read_to_string(cwd.join(".mycli").join("settings.local.json"))
+            std::fs::read_to_string(cwd.join(".mycli").join("settings.json"))
                 .expect("local settings after exit");
         assert!(local_settings.contains(r#""defaultMode": "acceptEdits""#));
         assert!(!cwd
@@ -9146,7 +9146,7 @@ mod tests {
         assert_eq!(exit_output["currentLocalMode"], serde_json::Value::Null);
 
         let local_settings =
-            std::fs::read_to_string(cwd.join(".mycli").join("settings.local.json"))
+            std::fs::read_to_string(cwd.join(".mycli").join("settings.json"))
                 .expect("local settings after exit");
         let local_settings_json: serde_json::Value =
             serde_json::from_str(&local_settings).expect("valid settings json");

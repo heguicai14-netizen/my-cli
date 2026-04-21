@@ -139,13 +139,11 @@ fn config_command_loads_defaults_from_standard_config_locations() {
 
     fs::write(config_home.join("settings.json"), r#"{"model":"haiku"}"#)
         .expect("write user settings");
-    fs::write(temp_dir.join(".claw.json"), r#"{"model":"sonnet"}"#)
-        .expect("write project settings");
     fs::write(
-        temp_dir.join(".mycli").join("settings.local.json"),
+        temp_dir.join(".mycli").join("settings.json"),
         r#"{"model":"opus"}"#,
     )
-    .expect("write local settings");
+    .expect("write project settings");
     let session_path = write_session(&temp_dir, "config-defaults");
 
     // when
@@ -164,7 +162,7 @@ fn config_command_loads_defaults_from_standard_config_locations() {
     assert_success(&output);
     let stdout = String::from_utf8(output.stdout).expect("stdout should be utf8");
     assert!(stdout.contains("Config"));
-    assert!(stdout.contains("Loaded files      3"));
+    assert!(stdout.contains("Loaded files      2"));
     assert!(stdout.contains("Merged section: model"));
     assert!(stdout.contains("opus"));
     assert!(stdout.contains(
@@ -173,11 +171,10 @@ fn config_command_loads_defaults_from_standard_config_locations() {
             .to_str()
             .expect("utf8 path")
     ));
-    assert!(stdout.contains(temp_dir.join(".claw.json").to_str().expect("utf8 path")));
     assert!(stdout.contains(
         temp_dir
             .join(".mycli")
-            .join("settings.local.json")
+            .join("settings.json")
             .to_str()
             .expect("utf8 path")
     ));
