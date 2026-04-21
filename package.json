@@ -3,6 +3,9 @@
   "version": "999.0.0-restored",
   "private": true,
   "description": "mycli — a fork of Claude Code reconstructed from its public source maps.",
+  "bin": {
+    "mycli": "./bin/mycli"
+  },
   "license": "SEE LICENSE IN LICENSE.md",
   "type": "module",
   "packageManager": "bun@1.3.5",

@@ -499,11 +499,21 @@ function getKnownModelOption(model: string): ModelOption | null {
   }
 }
 
-export function getModelOptions(fastMode = false): ModelOption[] {
-  const options = getModelOptionsBase(fastMode)
-  const hasConfiguredCustomModels = getConfiguredCustomModelOptions().length > 0
+export function getModelOptions(_fastMode = false): ModelOption[] {
+  // Default Claude model tier has been stripped — the /model picker now
+  // only lists user-configured models. Sources, in priority order:
+  //   1. settings.availableModels (getConfiguredCustomModelOptions)
+  //   2. ANTHROPIC_CUSTOM_MODEL_OPTION env var
+  //   3. additionalModelOptionsCache (from provider bootstrap)
+  //   4. settings.model / --model (as the current selection)
+  const options: ModelOption[] = []
 
-  // Add the custom model from the ANTHROPIC_CUSTOM_MODEL_OPTION env var
+  for (const opt of getConfiguredCustomModelOptions()) {
+    if (!options.some(existing => existing.value === opt.value)) {
+      options.push(opt)
+    }
+  }
+
   const envCustomModel = process.env.ANTHROPIC_CUSTOM_MODEL_OPTION
   if (
     envCustomModel &&
@@ -518,62 +528,31 @@ export function getModelOptions(fastMode = false): ModelOption[] {
     })
   }
 
-  // Append additional model options fetched during bootstrap
   for (const opt of getGlobalConfig().additionalModelOptionsCache ?? []) {
     if (!options.some(existing => existing.value === opt.value)) {
       options.push(opt)
     }
   }
 
-  // Add custom model from either the current model value or the initial one
-  // if it is not already in the options.
-  let customModel: ModelSetting = null
   const currentMainLoopModel = getUserSpecifiedModelSetting()
   const initialMainLoopModel = getInitialMainLoopModel()
-  if (currentMainLoopModel !== undefined && currentMainLoopModel !== null) {
-    customModel = currentMainLoopModel
-  } else if (initialMainLoopModel !== null) {
-    customModel = initialMainLoopModel
+  const selected =
+    currentMainLoopModel !== undefined && currentMainLoopModel !== null
+      ? currentMainLoopModel
+      : initialMainLoopModel
+  if (
+    selected !== null &&
+    selected !== undefined &&
+    !options.some(opt => opt.value === selected)
+  ) {
+    options.push({
+      value: selected,
+      label: selected,
+      description: 'Current model (from settings.model)',
+    })
   }
-  if (hasConfiguredCustomModels) {
-    if (customModel !== null && !options.some(opt => opt.value === customModel)) {
-      options.push({
-        value: customModel,
-        label: customModel,
-        description: 'Current model',
-      })
-    }
-    return filterModelOptionsByAllowlist(options)
-  }
-  if (customModel === null || options.some(opt => opt.value === customModel)) {
-    return filterModelOptionsByAllowlist(options)
-  } else if (customModel === 'opusplan') {
-    return filterModelOptionsByAllowlist([...options, getOpusPlanOption()])
-  } else if (customModel === 'opus' && getAPIProvider() === 'firstParty') {
-    return filterModelOptionsByAllowlist([
-      ...options,
-      getMaxOpusOption(fastMode),
-    ])
-  } else if (customModel === 'opus[1m]' && getAPIProvider() === 'firstParty') {
-    return filterModelOptionsByAllowlist([
-      ...options,
-      getMergedOpus1MOption(fastMode),
-    ])
-  } else {
-    // Try to show a human-readable label for known Anthropic models, with an
-    // upgrade hint if the alias now resolves to a newer version.
-    const knownOption = getKnownModelOption(customModel)
-    if (knownOption) {
-      options.push(knownOption)
-    } else {
-      options.push({
-        value: customModel,
-        label: customModel,
-        description: 'Custom model',
-      })
-    }
-    return filterModelOptionsByAllowlist(options)
-  }
+
+  return filterModelOptionsByAllowlist(options)
 }
 
 /**

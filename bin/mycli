@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# mycli launcher — resolves the repo root from this script's location, then
+# executes the TypeScript entry point via bun while preserving the caller's
+# working directory so the CLI operates on the user's current project.
+set -euo pipefail
+
+SCRIPT_SRC="${BASH_SOURCE[0]}"
+# Follow symlinks (e.g. when bun link places this under ~/.bun/bin/mycli).
+while [ -L "$SCRIPT_SRC" ]; do
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SRC")" && pwd)"
+  SCRIPT_SRC="$(readlink "$SCRIPT_SRC")"
+  [[ $SCRIPT_SRC != /* ]] && SCRIPT_SRC="$SCRIPT_DIR/$SCRIPT_SRC"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SRC")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "mycli: bun is required but not found on PATH (install: https://bun.sh)" >&2
+  exit 127
+fi
+
+exec bun "$REPO_ROOT/src/bootstrap-entry.ts" "$@"
