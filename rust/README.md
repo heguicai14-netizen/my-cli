@@ -51,7 +51,7 @@ cd rust/
 ./scripts/run_mock_parity_harness.sh
 
 # Or start the mock service manually for ad hoc CLI runs
-cargo run -p mock-anthropic-service -- --bind 127.0.0.1:0
+cargo run -p mock-upstream-service -- --bind 127.0.0.1:0
 ```
 
 Harness coverage:
@@ -69,7 +69,7 @@ Harness coverage:
 
 Primary artifacts:
 
-- `crates/mock-anthropic-service/` — reusable mock Anthropic-compatible service
+- `crates/mock-upstream-service/` — reusable mock Anthropic-compatible service
 - `crates/rusty-claude-cli/tests/mock_parity_harness.rs` — clean-env CLI harness
 - `scripts/run_mock_parity_harness.sh` — reproducible wrapper
 - `scripts/run_mock_parity_diff.py` — scenario checklist + PARITY mapping runner
@@ -185,7 +185,7 @@ rust/
     ├── api/                # Provider clients + streaming + request preflight
     ├── commands/           # Shared slash-command registry + help rendering
     ├── compat-harness/     # TS manifest extraction harness
-    ├── mock-anthropic-service/ # Deterministic local Anthropic-compatible mock
+    ├── mock-upstream-service/ # Deterministic local Anthropic-compatible mock
     ├── plugins/            # Plugin metadata, manager, install/enable/disable surfaces
     ├── runtime/            # Session, config, permissions, MCP, prompts, auth/runtime loop
     ├── rusty-claude-cli/   # Main CLI binary (`claw`)
@@ -198,7 +198,7 @@ rust/
 - **api** — provider clients, SSE streaming, request/response types, auth (`ANTHROPIC_API_KEY` + bearer-token support), request-size/context-window preflight
 - **commands** — slash command definitions, parsing, help text generation, JSON/text command rendering
 - **compat-harness** — extracts tool/prompt manifests from upstream TS source
-- **mock-anthropic-service** — deterministic `/v1/messages` mock for CLI parity tests and local harness runs
+- **mock-upstream-service** — deterministic `/v1/messages` mock for CLI parity tests and local harness runs
 - **plugins** — plugin metadata, install/enable/disable/update flows, plugin tool definitions, hook integration surfaces
 - **runtime** — `ConversationRuntime`, config loading, session persistence, permission policy, MCP client lifecycle, system prompt assembly, usage tracking
 - **rusty-claude-cli** — REPL, one-shot prompt, direct CLI subcommands, streaming display, tool call rendering, CLI argument parsing

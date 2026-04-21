@@ -4,7 +4,7 @@ use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use mock_anthropic_service::{MockAnthropicService, SCENARIO_PREFIX};
+use mock_upstream_service::{MockAnthropicService, SCENARIO_PREFIX};
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 

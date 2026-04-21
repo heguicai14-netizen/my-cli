@@ -78,7 +78,7 @@ Resolution order: `ANTHROPIC_API_KEY` env → `anthropic.apiKey` config → `ANT
 - **`rust/crates/tools/`** — Built-in tool specs and execution (Bash, Read, Write, Edit, Grep, Glob, WebSearch, WebFetch, Agent, Skill, etc.)
 - **`rust/crates/commands/`** — Slash command definitions, parsing, help text, JSON rendering
 - **`rust/crates/plugins/`** — Plugin metadata, install/enable/disable flows, hook integration
-- **`rust/crates/mock-anthropic-service/`** — Deterministic `/v1/messages` mock for parity testing
+- **`rust/crates/mock-upstream-service/`** — Deterministic `/v1/messages` mock for parity testing
 - **`rust/crates/telemetry/`** — Session trace events and usage telemetry
 - **`rust/crates/compat-harness/`** — Extracts tool/prompt manifests from upstream TypeScript source
 

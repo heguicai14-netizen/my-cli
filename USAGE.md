@@ -363,7 +363,7 @@ Manual mock service startup:
 
 ```bash
 cd rust
-cargo run -p mock-anthropic-service -- --bind 127.0.0.1:0
+cargo run -p mock-upstream-service -- --bind 127.0.0.1:0
 ```
 
 ## Verification
@@ -380,7 +380,7 @@ Current Rust crates:
 - `api`
 - `commands`
 - `compat-harness`
-- `mock-anthropic-service`
+- `mock-upstream-service`
 - `plugins`
 - `runtime`
 - `rusty-claude-cli`

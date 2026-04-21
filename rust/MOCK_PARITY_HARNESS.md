@@ -4,7 +4,7 @@ This milestone adds a deterministic Anthropic-compatible mock service plus a rep
 
 ## Artifacts
 
-- `crates/mock-anthropic-service/` — mock `/v1/messages` service
+- `crates/mock-upstream-service/` — mock `/v1/messages` service
 - `crates/rusty-claude-cli/tests/mock_parity_harness.rs` — end-to-end clean-environment harness
 - `scripts/run_mock_parity_harness.sh` — convenience wrapper
 
@@ -43,7 +43,7 @@ Scenario-to-PARITY mappings live in `mock_parity_scenarios.json`.
 
 ```bash
 cd rust/
-cargo run -p mock-anthropic-service -- --bind 127.0.0.1:0
+cargo run -p mock-upstream-service -- --bind 127.0.0.1:0
 ```
 
 The server prints `MOCK_ANTHROPIC_BASE_URL=...`; point `ANTHROPIC_BASE_URL` at that URL and use any non-empty `ANTHROPIC_API_KEY`.

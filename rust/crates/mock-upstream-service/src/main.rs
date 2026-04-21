@@ -1,6 +1,6 @@
 use std::env;
 
-use mock_anthropic_service::MockAnthropicService;
+use mock_upstream_service::MockAnthropicService;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 bind_addr = flag[7..].to_string();
             }
             "--help" | "-h" => {
-                println!("Usage: mock-anthropic-service [--bind HOST:PORT]");
+                println!("Usage: mock-upstream-service [--bind HOST:PORT]");
                 return Ok(());
             }
             other => {
