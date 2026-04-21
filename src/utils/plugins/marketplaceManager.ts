@@ -53,6 +53,7 @@ import {
   getAddDirExtraMarketplaces,
 } from './addDirPluginSettings.js'
 import { markPluginVersionOrphaned } from './cacheUtils.js'
+import { normalizeClaudePluginDir } from './claudeCompat.js'
 import { classifyFetchError, logPluginFetch } from './fetchTelemetry.js'
 import { removeAllPluginsForMarketplace } from './installedPluginsManager.js'
 import {
@@ -1117,7 +1118,10 @@ async function cacheMarketplaceFromGit(
       performance.now() - pullStarted,
       pullResult.code === 0 ? undefined : classifyFetchError(pullResult.stderr),
     )
-    if (pullResult.code === 0) return
+    if (pullResult.code === 0) {
+      await normalizeClaudePluginDir(cachePath)
+      return
+    }
     logForDebugging(`git pull failed, will re-clone: ${pullResult.stderr}`, {
       level: 'warn',
     })
@@ -1174,6 +1178,7 @@ async function cacheMarketplaceFromGit(
     }
     throw new Error(`Failed to clone marketplace repository: ${result.stderr}`)
   }
+  await normalizeClaudePluginDir(cachePath)
   safeCallProgress(onProgress, 'Clone complete, validating marketplace…')
 }
 

@@ -85,6 +85,7 @@ import { SettingsSchema } from '../settings/types.js'
 import { jsonParse, jsonStringify } from '../slowOperations.js'
 import { getAddDirEnabledPlugins } from './addDirPluginSettings.js'
 import { verifyAndDemote } from './dependencyResolver.js'
+import { normalizeClaudePluginDir } from './claudeCompat.js'
 import { classifyFetchError, logPluginFetch } from './fetchTelemetry.js'
 import { checkGitAvailable } from './gitAvailability.js'
 import { getInMemoryInstalledPlugins } from './installedPluginsManager.js'
@@ -975,6 +976,8 @@ export async function cachePlugin(
     }
     throw error
   }
+
+  await normalizeClaudePluginDir(tempPath)
 
   const manifestPath = join(tempPath, '.mycli-plugin', 'plugin.json')
   const legacyManifestPath = join(tempPath, 'plugin.json')
