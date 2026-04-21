@@ -1,0 +1,13 @@
+{
+  "aliases": {
+    "quick": "haiku"
+  },
+  "model": "opus",
+  "providers": {
+    "anthropic": {
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "baseUrl": "https://api.anthropic.com"
+    }
+  },
+  "permissionMode": "danger-full-access"
+}
