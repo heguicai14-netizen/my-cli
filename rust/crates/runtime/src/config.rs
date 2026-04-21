@@ -65,6 +65,32 @@ pub struct RuntimeFeatureConfig {
     sandbox: SandboxConfig,
     provider_fallbacks: ProviderFallbackConfig,
     trusted_roots: Vec<String>,
+    anthropic_credentials: AnthropicCredentialsConfig,
+}
+
+/// Anthropic credentials sourced from `anthropic.apiKey` / `anthropic.authToken`
+/// in `settings.json`. Environment variables still win when present.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AnthropicCredentialsConfig {
+    api_key: Option<String>,
+    auth_token: Option<String>,
+}
+
+impl AnthropicCredentialsConfig {
+    #[must_use]
+    pub fn api_key(&self) -> Option<&str> {
+        self.api_key.as_deref()
+    }
+
+    #[must_use]
+    pub fn auth_token(&self) -> Option<&str> {
+        self.auth_token.as_deref()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.api_key.is_none() && self.auth_token.is_none()
+    }
 }
 
 /// Ordered chain of fallback model identifiers used when the primary
@@ -299,6 +325,7 @@ impl ConfigLoader {
             sandbox: parse_optional_sandbox_config(&merged_value)?,
             provider_fallbacks: parse_optional_provider_fallbacks(&merged_value)?,
             trusted_roots: parse_optional_trusted_roots(&merged_value)?,
+            anthropic_credentials: parse_optional_anthropic_credentials(&merged_value)?,
         };
 
         Ok(RuntimeConfig {
@@ -398,6 +425,11 @@ impl RuntimeConfig {
     pub fn trusted_roots(&self) -> &[String] {
         &self.feature_config.trusted_roots
     }
+
+    #[must_use]
+    pub fn anthropic_credentials(&self) -> &AnthropicCredentialsConfig {
+        &self.feature_config.anthropic_credentials
+    }
 }
 
 impl RuntimeFeatureConfig {
@@ -466,6 +498,11 @@ impl RuntimeFeatureConfig {
     #[must_use]
     pub fn trusted_roots(&self) -> &[String] {
         &self.trusted_roots
+    }
+
+    #[must_use]
+    pub fn anthropic_credentials(&self) -> &AnthropicCredentialsConfig {
+        &self.anthropic_credentials
     }
 }
 
@@ -900,6 +937,26 @@ fn parse_filesystem_mode_label(value: &str) -> Result<FilesystemIsolationMode, C
             "merged settings.sandbox.filesystemMode: unsupported filesystem mode {other}"
         ))),
     }
+}
+
+fn parse_optional_anthropic_credentials(
+    root: &JsonValue,
+) -> Result<AnthropicCredentialsConfig, ConfigError> {
+    let Some(value) = root.as_object().and_then(|object| object.get("anthropic")) else {
+        return Ok(AnthropicCredentialsConfig::default());
+    };
+    let context = "merged settings.anthropic";
+    let object = expect_object(value, context)?;
+    let api_key = optional_string(object, "apiKey", context)?
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let auth_token = optional_string(object, "authToken", context)?
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    Ok(AnthropicCredentialsConfig {
+        api_key,
+        auth_token,
+    })
 }
 
 fn parse_optional_oauth_config(
@@ -1425,6 +1482,55 @@ mod tests {
         assert_eq!(chain.primary(), None);
         assert!(chain.fallbacks().is_empty());
         assert!(chain.is_empty());
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn parses_anthropic_credentials_from_settings() {
+        // given
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{"anthropic": {"apiKey": "sk-ant-user", "authToken": "bearer-user"}}"#,
+        )
+        .expect("write settings");
+
+        // when
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+
+        // then
+        let creds = loaded.anthropic_credentials();
+        assert_eq!(creds.api_key(), Some("sk-ant-user"));
+        assert_eq!(creds.auth_token(), Some("bearer-user"));
+        assert!(!creds.is_empty());
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn anthropic_credentials_default_empty_when_unset() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(home.join("settings.json"), "{}").expect("write empty settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+
+        let creds = loaded.anthropic_credentials();
+        assert!(creds.is_empty());
+        assert_eq!(creds.api_key(), None);
+        assert_eq!(creds.auth_token(), None);
 
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }

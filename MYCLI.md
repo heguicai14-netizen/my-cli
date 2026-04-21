@@ -43,20 +43,30 @@ cargo test --workspace
 
 ## Authentication
 
-Set credentials before running:
+Credentials can be provided via **config file** (preferred) or **environment variables** (overrides config when set).
 
-```bash
-# Anthropic API key (from console.anthropic.com)
-export ANTHROPIC_API_KEY="sk-ant-..."
+**Option A — `.mycli/settings.json`:**
 
-# OR OAuth bearer token (for proxies)
-export ANTHROPIC_AUTH_TOKEN="bearer-token"
-
-# Optional: custom base URL
-export ANTHROPIC_BASE_URL="https://your-proxy.com"
+```json
+{
+  "anthropic": {
+    "apiKey": "sk-ant-...",
+    "authToken": "bearer-token"
+  }
+}
 ```
 
-**Common auth mistake:** `sk-ant-*` keys go in `ANTHROPIC_API_KEY`, not `ANTHROPIC_AUTH_TOKEN`. The latter expects OAuth bearer tokens and uses a different HTTP header.
+**Option B — environment variables:**
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."        # from console.anthropic.com
+export ANTHROPIC_AUTH_TOKEN="bearer-token"   # OAuth / proxy bearer
+export ANTHROPIC_BASE_URL="https://your-proxy.com"  # optional
+```
+
+Resolution order: `ANTHROPIC_API_KEY` env → `anthropic.apiKey` config → `ANTHROPIC_AUTH_TOKEN` env → `anthropic.authToken` config. Startup fails only when every source is empty.
+
+**Common auth mistake:** `sk-ant-*` keys go in `apiKey` / `ANTHROPIC_API_KEY`, not `authToken` / `ANTHROPIC_AUTH_TOKEN`. The bearer slot expects OAuth tokens and uses a different HTTP header.
 
 ## Architecture
 

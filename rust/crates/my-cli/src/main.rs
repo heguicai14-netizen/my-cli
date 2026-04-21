@@ -24,7 +24,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use api::{
-    detect_provider_kind, resolve_startup_auth_source, AnthropicClient, AuthSource,
+    detect_provider_kind, AnthropicClient, AuthSource,
     ContentBlockDelta, InputContentBlock, InputMessage, MessageRequest, MessageResponse,
     OutputContentBlock, PromptCache, ProviderClient as ApiProviderClient, ProviderKind,
     StreamEvent as ApiStreamEvent, ToolChoice, ToolDefinition, ToolResultContentBlock,
@@ -6899,7 +6899,20 @@ fn resolve_cli_auth_source() -> Result<AuthSource, Box<dyn std::error::Error>> {
 }
 
 fn resolve_cli_auth_source_for_cwd() -> Result<AuthSource, api::ApiError> {
-    resolve_startup_auth_source(|| Ok(None))
+    let fallback = load_anthropic_credentials_from_config();
+    api::resolve_startup_auth_source_with_config(|| Ok(None), fallback)
+}
+
+fn load_anthropic_credentials_from_config() -> api::AnthropicConfigCredentials {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let Ok(runtime_config) = runtime::ConfigLoader::default_for(cwd).load() else {
+        return api::AnthropicConfigCredentials::default();
+    };
+    let credentials = runtime_config.anthropic_credentials();
+    api::AnthropicConfigCredentials::new(
+        credentials.api_key().map(str::to_string),
+        credentials.auth_token().map(str::to_string),
+    )
 }
 
 impl ApiClient for AnthropicRuntimeClient {

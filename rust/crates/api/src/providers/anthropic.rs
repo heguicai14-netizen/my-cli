@@ -652,24 +652,57 @@ pub fn has_auth_from_env_or_saved() -> Result<bool, ApiError> {
         || read_env_non_empty("ANTHROPIC_AUTH_TOKEN")?.is_some())
 }
 
+/// Fallback Anthropic credentials sourced from the loaded runtime config.
+/// Environment variables take precedence; these values are only consulted
+/// when the corresponding env var is unset.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AnthropicConfigCredentials {
+    pub api_key: Option<String>,
+    pub auth_token: Option<String>,
+}
+
+impl AnthropicConfigCredentials {
+    #[must_use]
+    pub fn new(api_key: Option<String>, auth_token: Option<String>) -> Self {
+        Self {
+            api_key: api_key.filter(|value| !value.is_empty()),
+            auth_token: auth_token.filter(|value| !value.is_empty()),
+        }
+    }
+}
+
 pub fn resolve_startup_auth_source<F>(load_oauth_config: F) -> Result<AuthSource, ApiError>
 where
     F: FnOnce() -> Result<Option<OAuthConfig>, ApiError>,
 {
+    resolve_startup_auth_source_with_config(load_oauth_config, AnthropicConfigCredentials::default())
+}
+
+pub fn resolve_startup_auth_source_with_config<F>(
+    load_oauth_config: F,
+    config_credentials: AnthropicConfigCredentials,
+) -> Result<AuthSource, ApiError>
+where
+    F: FnOnce() -> Result<Option<OAuthConfig>, ApiError>,
+{
     let _ = load_oauth_config;
-    if let Some(api_key) = read_env_non_empty("ANTHROPIC_API_KEY")? {
-        return match read_env_non_empty("ANTHROPIC_AUTH_TOKEN")? {
-            Some(bearer_token) => Ok(AuthSource::ApiKeyAndBearer {
-                api_key,
-                bearer_token,
-            }),
-            None => Ok(AuthSource::ApiKey(api_key)),
-        };
+    let api_key = match read_env_non_empty("ANTHROPIC_API_KEY")? {
+        Some(value) => Some(value),
+        None => config_credentials.api_key,
+    };
+    let bearer_token = match read_env_non_empty("ANTHROPIC_AUTH_TOKEN")? {
+        Some(value) => Some(value),
+        None => config_credentials.auth_token,
+    };
+    match (api_key, bearer_token) {
+        (Some(api_key), Some(bearer_token)) => Ok(AuthSource::ApiKeyAndBearer {
+            api_key,
+            bearer_token,
+        }),
+        (Some(api_key), None) => Ok(AuthSource::ApiKey(api_key)),
+        (None, Some(bearer_token)) => Ok(AuthSource::BearerToken(bearer_token)),
+        (None, None) => Err(anthropic_missing_credentials()),
     }
-    if let Some(bearer_token) = read_env_non_empty("ANTHROPIC_AUTH_TOKEN")? {
-        return Ok(AuthSource::BearerToken(bearer_token));
-    }
-    Err(anthropic_missing_credentials())
 }
 
 fn resolve_saved_oauth_token_set(
@@ -1019,7 +1052,8 @@ mod tests {
 
     use super::{
         now_unix_timestamp, oauth_token_is_expired, resolve_saved_oauth_token,
-        resolve_startup_auth_source, AnthropicClient, AuthSource, OAuthTokenSet,
+        resolve_startup_auth_source, resolve_startup_auth_source_with_config,
+        AnthropicClient, AnthropicConfigCredentials, AuthSource, OAuthTokenSet,
     };
     use crate::types::{ContentBlockDelta, MessageRequest};
 
@@ -1243,6 +1277,76 @@ mod tests {
         clear_oauth_credentials().expect("clear credentials");
         std::env::remove_var("CLAW_CONFIG_HOME");
         cleanup_temp_config_home(&config_home);
+    }
+
+    #[test]
+    fn resolve_startup_auth_source_with_config_falls_back_to_config_api_key_when_env_is_unset() {
+        let _guard = env_lock();
+        std::env::remove_var("ANTHROPIC_AUTH_TOKEN");
+        std::env::remove_var("ANTHROPIC_API_KEY");
+
+        let fallback = AnthropicConfigCredentials::new(Some("config-api-key".to_string()), None);
+        let source = resolve_startup_auth_source_with_config(|| Ok(None), fallback)
+            .expect("config api key should satisfy startup auth");
+        match source {
+            AuthSource::ApiKey(key) => assert_eq!(key, "config-api-key"),
+            other => panic!("expected ApiKey, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn resolve_startup_auth_source_with_config_falls_back_to_config_auth_token() {
+        let _guard = env_lock();
+        std::env::remove_var("ANTHROPIC_AUTH_TOKEN");
+        std::env::remove_var("ANTHROPIC_API_KEY");
+
+        let fallback = AnthropicConfigCredentials::new(None, Some("config-bearer".to_string()));
+        let source = resolve_startup_auth_source_with_config(|| Ok(None), fallback)
+            .expect("config auth token should satisfy startup auth");
+        match source {
+            AuthSource::BearerToken(token) => assert_eq!(token, "config-bearer"),
+            other => panic!("expected BearerToken, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn resolve_startup_auth_source_with_config_env_api_key_overrides_config() {
+        let _guard = env_lock();
+        std::env::set_var("ANTHROPIC_API_KEY", "env-api-key");
+        std::env::remove_var("ANTHROPIC_AUTH_TOKEN");
+
+        let fallback = AnthropicConfigCredentials::new(
+            Some("config-api-key".to_string()),
+            Some("config-bearer".to_string()),
+        );
+        let source = resolve_startup_auth_source_with_config(|| Ok(None), fallback)
+            .expect("env api key should win");
+        match source {
+            AuthSource::ApiKeyAndBearer {
+                api_key,
+                bearer_token,
+            } => {
+                assert_eq!(api_key, "env-api-key");
+                assert_eq!(bearer_token, "config-bearer");
+            }
+            other => panic!("expected ApiKeyAndBearer, got {other:?}"),
+        }
+
+        std::env::remove_var("ANTHROPIC_API_KEY");
+    }
+
+    #[test]
+    fn resolve_startup_auth_source_with_config_errors_when_both_env_and_config_are_empty() {
+        let _guard = env_lock();
+        std::env::remove_var("ANTHROPIC_API_KEY");
+        std::env::remove_var("ANTHROPIC_AUTH_TOKEN");
+
+        let error = resolve_startup_auth_source_with_config(
+            || Ok(None),
+            AnthropicConfigCredentials::default(),
+        )
+        .expect_err("no credentials anywhere should still error");
+        assert!(error.to_string().contains("ANTHROPIC_API_KEY"));
     }
 
     #[test]

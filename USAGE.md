@@ -104,28 +104,43 @@ Model aliases currently supported by the CLI:
 
 ## Authentication
 
-### API key
+Credentials can be provided via the config file or environment variables. Env vars win when set; otherwise the config file supplies the value.
+
+### Config file (`.mycli/settings.json`)
+
+```json
+{
+  "anthropic": {
+    "apiKey": "sk-ant-...",
+    "authToken": "bearer-token"
+  }
+}
+```
+
+User-level config at `~/.mycli/settings.json` is merged first, then the project-level file at `<repo>/.mycli/settings.json` overrides it.
+
+### API key via environment
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
-### OAuth
+### OAuth via environment
 
 ```bash
 cd rust
 export ANTHROPIC_AUTH_TOKEN="anthropic-oauth-or-proxy-bearer-token"
 ```
 
-### Which env var goes where
+### Which slot goes where
 
-`claw` accepts two Anthropic credential env vars and they are **not interchangeable** — the HTTP header Anthropic expects differs per credential shape. Putting the wrong value in the wrong slot is the most common 401 we see.
+`claw` accepts two Anthropic credential slots and they are **not interchangeable** — the HTTP header Anthropic expects differs per credential shape. Putting the wrong value in the wrong slot is the most common 401 we see.
 
-| Credential shape | Env var | HTTP header | Typical source |
-|---|---|---|---|
-| `sk-ant-*` API key | `ANTHROPIC_API_KEY` | `x-api-key: sk-ant-...` | [console.anthropic.com](https://console.anthropic.com) |
-| OAuth access token (opaque) | `ANTHROPIC_AUTH_TOKEN` | `Authorization: Bearer ...` | an Anthropic-compatible proxy or OAuth flow that mints bearer tokens |
-| OpenRouter key (`sk-or-v1-*`) | `OPENAI_API_KEY` + `OPENAI_BASE_URL=https://openrouter.ai/api/v1` | `Authorization: Bearer ...` | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| Credential shape | Config key | Env var | HTTP header | Typical source |
+|---|---|---|---|---|
+| `sk-ant-*` API key | `anthropic.apiKey` | `ANTHROPIC_API_KEY` | `x-api-key: sk-ant-...` | [console.anthropic.com](https://console.anthropic.com) |
+| OAuth access token (opaque) | `anthropic.authToken` | `ANTHROPIC_AUTH_TOKEN` | `Authorization: Bearer ...` | an Anthropic-compatible proxy or OAuth flow that mints bearer tokens |
+| OpenRouter key (`sk-or-v1-*`) | — | `OPENAI_API_KEY` + `OPENAI_BASE_URL=https://openrouter.ai/api/v1` | `Authorization: Bearer ...` | [openrouter.ai/keys](https://openrouter.ai/keys) |
 
 **Why this matters:** if you paste an `sk-ant-*` key into `ANTHROPIC_AUTH_TOKEN`, Anthropic's API will return `401 Invalid bearer token` because `sk-ant-*` keys are rejected over the Bearer header. The fix is a one-line env var swap — move the key to `ANTHROPIC_API_KEY`. Recent `claw` builds detect this exact shape (401 + `sk-ant-*` in the Bearer slot) and append a hint to the error message pointing at the fix.
 

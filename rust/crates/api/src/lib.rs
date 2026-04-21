@@ -8,7 +8,8 @@ mod types;
 
 pub use client::{
     oauth_token_is_expired, read_base_url, read_xai_base_url, resolve_saved_oauth_token,
-    resolve_startup_auth_source, MessageStream, OAuthTokenSet, ProviderClient,
+    resolve_startup_auth_source, resolve_startup_auth_source_with_config,
+    AnthropicConfigCredentials, MessageStream, OAuthTokenSet, ProviderClient,
 };
 pub use error::ApiError;
 pub use http_client::{
