@@ -104,9 +104,17 @@ Model aliases currently supported by the CLI:
 
 ## Authentication
 
-Every credential — Anthropic and otherwise — lives in `.mycli/settings.json`. No env var exports needed.
+Credentials can come from env vars or `.mycli/settings.json`. Env wins when both are set; settings.json is the persistent fallback.
 
-### Anthropic (first-class `anthropic` block)
+### Anthropic — env var (standard)
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+# or
+export ANTHROPIC_AUTH_TOKEN="anthropic-oauth-or-proxy-bearer-token"
+```
+
+### Anthropic — settings.json
 
 ```json
 {
@@ -116,12 +124,12 @@ Every credential — Anthropic and otherwise — lives in `.mycli/settings.json`
 }
 ```
 
-| Credential shape | Config key | HTTP header | Typical source |
-|---|---|---|---|
-| `sk-ant-*` API key | `anthropic.apiKey` | `x-api-key: sk-ant-...` | [console.anthropic.com](https://console.anthropic.com) |
-| OAuth access token (opaque) | `anthropic.authToken` | `Authorization: Bearer ...` | an Anthropic-compatible proxy or OAuth flow that mints bearer tokens |
+| Credential shape | Env var | Config key | HTTP header | Typical source |
+|---|---|---|---|---|
+| `sk-ant-*` API key | `ANTHROPIC_API_KEY` | `anthropic.apiKey` | `x-api-key: sk-ant-...` | [console.anthropic.com](https://console.anthropic.com) |
+| OAuth access token (opaque) | `ANTHROPIC_AUTH_TOKEN` | `anthropic.authToken` | `Authorization: Bearer ...` | an Anthropic-compatible proxy or OAuth flow that mints bearer tokens |
 
-Putting an `sk-ant-*` key in `authToken` yields `401 Invalid bearer token` (wrong header). Move it to `apiKey`.
+Resolution order: env `ANTHROPIC_API_KEY` → `anthropic.apiKey` → env `ANTHROPIC_AUTH_TOKEN` → `anthropic.authToken` → error. Putting an `sk-ant-*` key in the bearer slot yields `401 Invalid bearer token` (wrong header).
 
 ### Non-Anthropic providers — use the `env` block
 

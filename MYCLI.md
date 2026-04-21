@@ -43,10 +43,16 @@ cargo test --workspace
 
 ## Configuration
 
-Everything — credentials, provider routing, base URLs — goes in `.mycli/settings.json`. Nothing needs to be `export`ed to the shell.
+Credentials can come from environment variables **or** `.mycli/settings.json`. Environment variables win when both are set, matching standard Anthropic SDK behavior; settings.json provides a persistent fallback.
 
 ### Anthropic (first-class)
 
+**Option A — env var (standard):**
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+**Option B — settings.json:**
 ```json
 {
   "anthropic": {
@@ -55,7 +61,31 @@ Everything — credentials, provider routing, base URLs — goes in `.mycli/sett
 }
 ```
 
-`sk-ant-*` keys go in `apiKey`; OAuth bearer tokens go in `authToken`. Startup fails only when **both** are absent and the selected model is Anthropic.
+**Option C — anything goes in settings.json via the `env` block:**
+```json
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "sk-ant-..."
+  }
+}
+```
+
+`sk-ant-*` keys go in `apiKey` / `ANTHROPIC_API_KEY`; OAuth bearer tokens go in `authToken` / `ANTHROPIC_AUTH_TOKEN`. Startup fails only when **every** source is empty.
+
+Resolution order: env `ANTHROPIC_API_KEY` → `anthropic.apiKey` → env `ANTHROPIC_AUTH_TOKEN` → `anthropic.authToken` → error.
+
+### Kimi Code (Anthropic-compatible endpoint)
+
+Kimi Code's docs say to `export ANTHROPIC_BASE_URL=https://api.kimi.com/coding/` and `export ANTHROPIC_API_KEY=sk-kimi-...`. Exactly those env vars work. Or put them in settings.json:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.kimi.com/coding/",
+    "ANTHROPIC_API_KEY": "sk-kimi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  }
+}
+```
 
 ### Any other provider — use the `env` block
 

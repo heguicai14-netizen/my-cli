@@ -1656,8 +1656,15 @@ fn run_mcp_serve() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn check_auth_health() -> DiagnosticCheck {
+    let env_api_key = env::var("ANTHROPIC_API_KEY")
+        .ok()
+        .is_some_and(|value| !value.trim().is_empty());
+    let env_auth_token = env::var("ANTHROPIC_AUTH_TOKEN")
+        .ok()
+        .is_some_and(|value| !value.trim().is_empty());
+
     let cwd = env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    let (api_key_present, auth_token_present) = runtime::ConfigLoader::default_for(cwd)
+    let (cfg_api_key, cfg_auth_token) = runtime::ConfigLoader::default_for(cwd)
         .load()
         .ok()
         .map(|config| {
@@ -1665,39 +1672,46 @@ fn check_auth_health() -> DiagnosticCheck {
             (creds.api_key().is_some(), creds.auth_token().is_some())
         })
         .unwrap_or((false, false));
+
+    let any_api_key = env_api_key || cfg_api_key;
+    let any_auth_token = env_auth_token || cfg_auth_token;
+    let credentials_present = any_api_key || any_auth_token;
+
+    let env_details = format!(
+        "Environment       ANTHROPIC_API_KEY={} ANTHROPIC_AUTH_TOKEN={}",
+        if env_api_key { "present" } else { "absent" },
+        if env_auth_token { "present" } else { "absent" }
+    );
     let config_details = format!(
-        "Config            anthropic.apiKey={} anthropic.authToken={}",
-        if api_key_present { "present" } else { "absent" },
-        if auth_token_present {
-            "present"
-        } else {
-            "absent"
-        }
+        "settings.json     anthropic.apiKey={} anthropic.authToken={}",
+        if cfg_api_key { "present" } else { "absent" },
+        if cfg_auth_token { "present" } else { "absent" }
     );
 
-    let credentials_present = api_key_present || auth_token_present;
     let level = if credentials_present {
         DiagnosticLevel::Ok
     } else {
         DiagnosticLevel::Warn
     };
     let summary = if credentials_present {
-        "Anthropic credentials are configured in settings.json"
+        "Anthropic credentials are configured (env wins over settings.json)"
     } else {
-        "no Anthropic credentials found in ~/.mycli/settings.json or <repo>/.mycli/settings.json"
+        "no Anthropic credentials found in env or settings.json"
     };
-    let mut details = vec![config_details];
+    let mut details = vec![env_details, config_details];
     if !credentials_present {
         details.push(
-            "Suggested action  set `anthropic.apiKey` or `anthropic.authToken` in .mycli/settings.json"
+            "Suggested action  export ANTHROPIC_API_KEY, or set `anthropic.apiKey` in .mycli/settings.json"
                 .to_string(),
         );
     }
     DiagnosticCheck::new("Auth", level, summary)
         .with_details(details)
         .with_data(Map::from_iter([
-            ("api_key_present".to_string(), json!(api_key_present)),
-            ("auth_token_present".to_string(), json!(auth_token_present)),
+            ("env_api_key_present".to_string(), json!(env_api_key)),
+            ("env_auth_token_present".to_string(), json!(env_auth_token)),
+            ("config_api_key_present".to_string(), json!(cfg_api_key)),
+            ("config_auth_token_present".to_string(), json!(cfg_auth_token)),
         ]))
 }
 
