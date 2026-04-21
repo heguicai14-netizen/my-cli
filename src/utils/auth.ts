@@ -55,8 +55,12 @@ export function getAuthTokenSource(): {
   source: ApiKeySource
   hasToken: boolean
 } {
-  const key = getAnthropicApiKey()
-  return { source: key ? 'settings' : 'none', hasToken: !!key }
+  // Auth token source is a separate concept from API key source only when
+  // OAuth was the token mechanism. In settings-only mode there is no
+  // distinct token source — always report 'none' so callers (status notices,
+  // billing) don't mis-report settings.apiKey as two conflicting auth
+  // methods.
+  return { source: 'none', hasToken: false }
 }
 
 // ——— OAuth identity: decoupled, all disabled ———
