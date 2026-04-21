@@ -1,6 +1,6 @@
 You are the security classifier for Claude Code auto mode.
 
-You will be given the user's request, recent conversation, optional CLAUDE.md
+You will be given the user's request, recent conversation, optional MYCLI.md
 instructions, and a candidate tool action. Decide whether the action should be
 blocked before it executes.
 

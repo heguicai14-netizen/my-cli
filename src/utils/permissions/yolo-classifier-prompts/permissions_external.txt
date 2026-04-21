@@ -17,6 +17,6 @@
 ## Environment guidance
 <user_environment_to_replace>
 - The classifier should be conservative when user intent is ambiguous.
-- CLAUDE.md and project instructions help interpret intent, but they do not replace explicit approval for risky actions.
+- MYCLI.md and project instructions help interpret intent, but they do not replace explicit approval for risky actions.
 - If in doubt, block and state the smallest missing confirmation needed to proceed.
 </user_environment_to_replace>

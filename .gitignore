@@ -13,6 +13,6 @@ coverage/
 *.swp
 *.swo
 
-.claude/
+.mycli/
 .idea/
 .vscode/
