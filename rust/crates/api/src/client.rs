@@ -46,6 +46,22 @@ impl ProviderClient {
         }
     }
 
+    /// Attach the given custom headers to every outbound request produced
+    /// by this provider client. Applies to all three underlying variants
+    /// (Anthropic, xAI, OpenAI-compat); the caller does not have to
+    /// discriminate on kind.
+    #[must_use]
+    pub fn with_extra_headers(
+        self,
+        headers: std::collections::BTreeMap<String, String>,
+    ) -> Self {
+        match self {
+            Self::Anthropic(client) => Self::Anthropic(client.with_extra_headers(headers)),
+            Self::Xai(client) => Self::Xai(client.with_extra_headers(headers)),
+            Self::OpenAi(client) => Self::OpenAi(client.with_extra_headers(headers)),
+        }
+    }
+
     #[must_use]
     pub const fn provider_kind(&self) -> ProviderKind {
         match self {

@@ -128,6 +128,7 @@ pub struct AnthropicClient {
     session_tracer: Option<SessionTracer>,
     prompt_cache: Option<PromptCache>,
     last_prompt_cache_record: Arc<Mutex<Option<PromptCacheRecord>>>,
+    extra_headers: std::collections::BTreeMap<String, String>,
 }
 
 impl AnthropicClient {
@@ -144,6 +145,7 @@ impl AnthropicClient {
             session_tracer: None,
             prompt_cache: None,
             last_prompt_cache_record: Arc::new(Mutex::new(None)),
+            extra_headers: std::collections::BTreeMap::new(),
         }
     }
 
@@ -160,7 +162,17 @@ impl AnthropicClient {
             session_tracer: None,
             prompt_cache: None,
             last_prompt_cache_record: Arc::new(Mutex::new(None)),
+            extra_headers: std::collections::BTreeMap::new(),
         }
+    }
+
+    #[must_use]
+    pub fn with_extra_headers(
+        mut self,
+        headers: std::collections::BTreeMap<String, String>,
+    ) -> Self {
+        self.extra_headers = headers;
+        self
     }
 
     pub fn from_env() -> Result<Self, ApiError> {
@@ -487,6 +499,9 @@ impl AnthropicClient {
             .header("content-type", "application/json");
         let mut request_builder = self.auth.apply(request_builder);
         for (header_name, header_value) in self.request_profile.header_pairs() {
+            request_builder = request_builder.header(header_name, header_value);
+        }
+        for (header_name, header_value) in &self.extra_headers {
             request_builder = request_builder.header(header_name, header_value);
         }
         request_builder

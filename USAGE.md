@@ -138,6 +138,21 @@ At startup, every string under `env` is projected into the process environment b
 
 User-level config at `~/.mycli/settings.json` is merged first, then project-level `<repo>/.mycli/settings.json` overrides it.
 
+### Custom request headers
+
+Some gateways need extra headers (OpenRouter expects `HTTP-Referer` / `X-Title`; corporate proxies may tag requests). Add them under `requestHeaders` and they're appended to every outbound provider request:
+
+```json
+{
+  "requestHeaders": {
+    "HTTP-Referer": "https://my-cli.dev",
+    "X-Title": "my-cli"
+  }
+}
+```
+
+`User-Agent: my-cli/<version>` is sent automatically on every request.
+
 ## Local Models
 
 `my-cli` can talk to local servers and provider gateways through either Anthropic-compatible or OpenAI-compatible endpoints. Use `ANTHROPIC_BASE_URL` with `ANTHROPIC_AUTH_TOKEN` for Anthropic-compatible services, or `OPENAI_BASE_URL` with `OPENAI_API_KEY` for OpenAI-compatible services.

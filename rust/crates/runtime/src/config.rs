@@ -66,6 +66,7 @@ pub struct RuntimeFeatureConfig {
     provider_fallbacks: ProviderFallbackConfig,
     trusted_roots: Vec<String>,
     anthropic_credentials: AnthropicCredentialsConfig,
+    request_headers: BTreeMap<String, String>,
 }
 
 /// Anthropic credentials sourced from `anthropic.apiKey` / `anthropic.authToken`
@@ -326,6 +327,7 @@ impl ConfigLoader {
             provider_fallbacks: parse_optional_provider_fallbacks(&merged_value)?,
             trusted_roots: parse_optional_trusted_roots(&merged_value)?,
             anthropic_credentials: parse_optional_anthropic_credentials(&merged_value)?,
+            request_headers: parse_optional_request_headers(&merged_value)?,
         };
 
         Ok(RuntimeConfig {
@@ -431,6 +433,11 @@ impl RuntimeConfig {
         &self.feature_config.anthropic_credentials
     }
 
+    #[must_use]
+    pub fn request_headers(&self) -> &BTreeMap<String, String> {
+        &self.feature_config.request_headers
+    }
+
     /// Apply every string entry under the top-level `env` object to the process
     /// environment via `std::env::set_var`. Non-string values are skipped
     /// silently. Returns the list of keys that were set.
@@ -526,6 +533,11 @@ impl RuntimeFeatureConfig {
     #[must_use]
     pub fn anthropic_credentials(&self) -> &AnthropicCredentialsConfig {
         &self.anthropic_credentials
+    }
+
+    #[must_use]
+    pub fn request_headers(&self) -> &BTreeMap<String, String> {
+        &self.request_headers
     }
 }
 
@@ -960,6 +972,29 @@ fn parse_filesystem_mode_label(value: &str) -> Result<FilesystemIsolationMode, C
             "merged settings.sandbox.filesystemMode: unsupported filesystem mode {other}"
         ))),
     }
+}
+
+fn parse_optional_request_headers(
+    root: &JsonValue,
+) -> Result<BTreeMap<String, String>, ConfigError> {
+    let Some(value) = root.as_object().and_then(|object| object.get("requestHeaders")) else {
+        return Ok(BTreeMap::new());
+    };
+    let context = "merged settings.requestHeaders";
+    let object = expect_object(value, context)?;
+    let mut headers = BTreeMap::new();
+    for (key, raw) in object {
+        let Some(str_value) = raw.as_str() else {
+            return Err(ConfigError::Parse(format!(
+                "{context}: field {key} must be a string"
+            )));
+        };
+        if str_value.is_empty() {
+            continue;
+        }
+        headers.insert(key.clone(), str_value.to_string());
+    }
+    Ok(headers)
 }
 
 fn parse_optional_anthropic_credentials(
@@ -1596,6 +1631,62 @@ mod tests {
         std::env::remove_var(&key_a);
         std::env::remove_var(&key_b);
         std::env::remove_var(&key_c);
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn parses_request_headers_from_settings() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{"requestHeaders": {"X-Title": "my-cli", "HTTP-Referer": "https://my-cli.dev", "X-Empty": ""}}"#,
+        )
+        .expect("write settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+
+        let headers = loaded.request_headers();
+        assert_eq!(headers.get("X-Title").map(String::as_str), Some("my-cli"));
+        assert_eq!(
+            headers.get("HTTP-Referer").map(String::as_str),
+            Some("https://my-cli.dev")
+        );
+        assert!(
+            !headers.contains_key("X-Empty"),
+            "empty-string headers should be skipped"
+        );
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn request_headers_rejects_non_string_values() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".mycli");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{"requestHeaders": {"X-Bad": 42}}"#,
+        )
+        .expect("write settings");
+
+        let error = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect_err("non-string header value should be rejected");
+        let msg = error.to_string();
+        assert!(
+            msg.contains("requestHeaders") && msg.contains("must be a string"),
+            "error should name the bad field: {msg}"
+        );
+
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }
 

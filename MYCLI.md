@@ -112,6 +112,26 @@ At startup, every string entry under `env` is projected into the process environ
 }
 ```
 
+### Custom request headers (`requestHeaders`)
+
+Some gateways require extra headers (OpenRouter wants `HTTP-Referer` / `X-Title`; Kimi's Claude-Code plan may require `X-Moonshot-*`; corporate proxies may want a tenant tag). The `requestHeaders` block appends every entry to **every outbound provider request** — Anthropic and OpenAI-compat paths alike:
+
+```json
+{
+  "model": "openai/gpt-4.1-mini",
+  "env": {
+    "OPENAI_API_KEY": "sk-or-v1-...",
+    "OPENAI_BASE_URL": "https://openrouter.ai/api/v1"
+  },
+  "requestHeaders": {
+    "HTTP-Referer": "https://my-cli.dev",
+    "X-Title": "my-cli"
+  }
+}
+```
+
+`User-Agent` is always sent automatically (`my-cli/<version>`) on both paths.
+
 ## Architecture
 
 ### Workspace Structure

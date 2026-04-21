@@ -6799,12 +6799,14 @@ impl AnthropicRuntimeClient {
         // prompt cache is Anthropic-only so non-Anthropic variants
         // skip it.
         let resolved_model = api::resolve_model_alias(&model);
+        let extra_headers = load_request_headers_from_config();
         let client = match detect_provider_kind(&resolved_model) {
             ProviderKind::Anthropic => {
                 let auth = resolve_cli_auth_source()?;
                 let inner = AnthropicClient::from_auth(auth)
                     .with_base_url(api::read_base_url())
-                    .with_prompt_cache(PromptCache::new(session_id));
+                    .with_prompt_cache(PromptCache::new(session_id))
+                    .with_extra_headers(extra_headers.clone());
                 ApiProviderClient::Anthropic(inner)
             }
             ProviderKind::Xai | ProviderKind::OpenAi => {
@@ -6819,6 +6821,7 @@ impl AnthropicRuntimeClient {
                 // OpenAI-compat endpoint users configure via
                 // `OPENAI_BASE_URL` / `XAI_BASE_URL` / `DASHSCOPE_BASE_URL`.
                 ApiProviderClient::from_model_with_anthropic_auth(&resolved_model, None)?
+                    .with_extra_headers(extra_headers.clone())
             }
         };
         Ok(Self {
@@ -6859,6 +6862,17 @@ fn load_anthropic_credentials_from_config() -> api::AnthropicConfigCredentials {
         credentials.api_key().map(str::to_string),
         credentials.auth_token().map(str::to_string),
     )
+}
+
+/// Load the top-level `requestHeaders` block from `.mycli/settings.json`
+/// as a flat `name -> value` map to attach to every outbound provider
+/// request. Empty on failure or if the block is missing.
+fn load_request_headers_from_config() -> std::collections::BTreeMap<String, String> {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let Ok(runtime_config) = runtime::ConfigLoader::default_for(cwd).load() else {
+        return std::collections::BTreeMap::new();
+    };
+    runtime_config.request_headers().clone()
 }
 
 /// Load `.mycli/settings.json` (user + project scope) and project every
