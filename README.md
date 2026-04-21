@@ -1,11 +1,11 @@
 
-# Restored Claude Code Source
+# mycli
 
 
 ![Preview](preview.png)
 
 
-  This repository is a restored Claude Code source tree reconstructed primarily from source maps and missing-module backfilling.
+  `mycli` is a fork of Claude Code, originally reconstructed primarily from source maps and missing-module backfilling, now rebranded and maintained independently as `mycli`.
 
   It is not the original upstream repository state. Some files were unrecoverable from source maps and have been replaced with compatibility shims or degraded implementations so the
   project can install and run again.
@@ -17,7 +17,7 @@
   - `bun run version` succeeds.
   - `bun run dev` now routes through the restored CLI bootstrap instead of the temporary `dev-entry` shim.
   - `bun run dev --help` shows the full command tree from the restored CLI.
-  - A number of modules still contain restoration-time fallbacks, so behavior may differ from the original Claude Code implementation.
+  - A number of modules still contain restoration-time fallbacks, so behavior may differ from the original upstream Claude Code implementation.
 
   ## Restored so far
 
@@ -88,7 +88,7 @@
   gh auth login
   ```
 
-  Use GitHub Models with the restored Claude Code runtime:
+  Use GitHub Models with the mycli runtime:
 
   ```bash
   bun run dev --settings '{"provider":"github-models"}'
@@ -100,7 +100,7 @@
   bun run dev --settings '{"provider":"github-models"}' --model "openai/gpt-4.1"
   ```
 
-  Use GitHub Copilot with the restored Claude Code runtime:
+  Use GitHub Copilot with the mycli runtime:
 
   ```bash
   bun run dev --settings '{"provider":"github-copilot"}'
@@ -128,7 +128,7 @@
   bun run dev --settings '{"provider":"github-copilot"}' --model "claude-opus-4.6"
   ```
 
-  Copilot-backed models currently validated with the Claude Code runtime and tool loop are:
+  Copilot-backed models currently validated with the mycli runtime and tool loop are:
 
   - `claude-sonnet-4.6`
   - `claude-opus-4.6`
@@ -139,16 +139,16 @@
 
   Current limitation:
 
-  - Copilot-hosted Claude models are working through the existing Claude Code agent/runtime path.
-  - Copilot-hosted GPT/Grok style models are not fully wired into the Claude Code runtime yet because they primarily require Copilot's `/responses` API path rather than the current chat/messages shim.
+  - Copilot-hosted Claude models are working through the existing mycli agent/runtime path.
+  - Copilot-hosted GPT/Grok style models are not fully wired into the mycli runtime yet because they primarily require Copilot's `/responses` API path rather than the current chat/messages shim.
 
   ## 中文说明
 
-  # 还原后的 Claude Code 源码
+  # mycli
 
   ![Preview](preview.png)
 
-  这个仓库是一个主要通过 source map 逆向还原、再补齐缺失模块后得到的 Claude Code 源码树。
+  `mycli` 是 Claude Code 的一个分支：最初通过 source map 逆向还原并补齐缺失模块，得到一份 Claude Code 源码树，现在以 `mycli` 的身份独立维护。
 
   它并不是上游仓库的原始状态。部分文件无法仅凭 source map 恢复，因此目前仍包含兼容 shim 或降级实现，以便项目可以重新安装并运行。
 
@@ -159,7 +159,7 @@
   - `bun run version` 可以成功执行。
   - `bun run dev` 现在会通过还原后的真实 CLI bootstrap 启动，而不是临时的 `dev-entry`。
   - `bun run dev --help` 可以显示还原后的完整命令树。
-  - 仍有部分模块保留恢复期 fallback，因此行为可能与原始 Claude Code 实现不同。
+  - 仍有部分模块保留恢复期 fallback，因此行为可能与上游 Claude Code 实现不同。
 
   ### 已恢复内容
 
@@ -230,7 +230,7 @@
   gh auth login
   ```
 
-  使用 GitHub Models 跑恢复版 Claude Code runtime：
+  使用 GitHub Models 跑 mycli runtime：
 
   ```bash
   bun run dev --settings '{"provider":"github-models"}'
@@ -242,7 +242,7 @@
   bun run dev --settings '{"provider":"github-models"}' --model "openai/gpt-4.1"
   ```
 
-  使用 GitHub Copilot 跑恢复版 Claude Code runtime：
+  使用 GitHub Copilot 跑 mycli runtime：
 
   ```bash
   bun run dev --settings '{"provider":"github-copilot"}'
@@ -269,7 +269,7 @@
   bun run dev --settings '{"provider":"github-copilot"}' --model "claude-opus-4.6"
   ```
 
-  当前已经验证能跑 Claude Code runtime 和工具循环的 Copilot 模型有：
+  当前已经验证能跑 mycli runtime 和工具循环的 Copilot 模型有：
 
   - `claude-sonnet-4.6`
   - `claude-opus-4.6`
@@ -280,5 +280,5 @@
 
   当前限制：
 
-  - Copilot 托管的 Claude 模型已经可以走现有 Claude Code agent/runtime 路径。
+  - Copilot 托管的 Claude 模型已经可以走现有 mycli agent/runtime 路径。
   - Copilot 托管的 GPT/Grok 一类模型还没有完整接进来，因为它们主要需要走 Copilot 的 `/responses` API，而当前适配层主要还是 chat/messages 这条路径。

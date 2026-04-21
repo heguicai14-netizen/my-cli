@@ -18,7 +18,7 @@ import { handleMcpjsonServerApprovals } from './services/mcpServerApproval.js';
 import { AppStateProvider } from './state/AppState.js';
 import { onChangeAppState } from './state/onChangeAppState.js';
 import { normalizeApiKeyForConfig } from './utils/authPortable.js';
-import { getExternalClaudeMdIncludes, getMemoryFiles, shouldShowClaudeMdExternalIncludesWarning } from './utils/claudemd.js';
+import { getExternalClaudeMdIncludes, getMemoryFiles, shouldShowClaudeMdExternalIncludesWarning } from './utils/myclimd.js';
 import { checkHasTrustDialogAccepted, getCustomApiKeyStatus, getGlobalConfig, saveGlobalConfig } from './utils/config.js';
 import { updateDeepLinkTerminalPreference } from './utils/deepLink/terminalPreference.js';
 import { isEnvTruthy, isRunningOnHomespace } from './utils/envUtils.js';
@@ -165,7 +165,7 @@ export async function showSetupScreens(root: Root, permissionMode: PermissionMod
       const externalIncludes = getExternalClaudeMdIncludes(await getMemoryFiles(true));
       const {
         ClaudeMdExternalIncludesDialog
-      } = await import('./components/ClaudeMdExternalIncludesDialog.js');
+      } = await import('./components/MycliMdExternalIncludesDialog.js');
       await showSetupDialog(root, done => <ClaudeMdExternalIncludesDialog onDone={done} isStandaloneDialog externalIncludes={externalIncludes} />);
     }
   }
@@ -291,7 +291,7 @@ export async function showSetupScreens(root: Root, permissionMode: PermissionMod
   if (claudeInChrome && !getGlobalConfig().hasCompletedClaudeInChromeOnboarding) {
     const {
       ClaudeInChromeOnboarding
-    } = await import('./components/ClaudeInChromeOnboarding.js');
+    } = await import('./components/MycliInChromeOnboarding.js');
     await showSetupDialog(root, done => <ClaudeInChromeOnboarding onDone={done} />);
   }
   return onboardingShown;

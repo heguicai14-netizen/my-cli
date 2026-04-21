@@ -23,13 +23,13 @@ import { ProviderSelectionFlow, type ProviderSelectionResult } from '../Provider
 import { modelDisplayString, isOpus1mMergeEnabled } from '../../utils/model/model.js';
 import { getActiveProviderConfig, getEnvironmentProviderOverrideId, normalizeProviderSettingValue } from '../../utils/model/providerConfig.js';
 import { isBilledAsExtraUsage } from '../../utils/extraUsage.js';
-import { ClaudeMdExternalIncludesDialog } from '../ClaudeMdExternalIncludesDialog.js';
+import { ClaudeMdExternalIncludesDialog } from '../MycliMdExternalIncludesDialog.js';
 import { ChannelDowngradeDialog, type ChannelDowngradeChoice } from '../ChannelDowngradeDialog.js';
 import { Dialog } from '../design-system/Dialog.js';
 import { Select } from '../CustomSelect/index.js';
 import { OutputStylePicker } from '../OutputStylePicker.js';
 import { LanguagePicker } from '../LanguagePicker.js';
-import { getExternalClaudeMdIncludes, getMemoryFiles, hasExternalClaudeMdIncludes } from 'src/utils/claudemd.js';
+import { getExternalClaudeMdIncludes, getMemoryFiles, hasExternalClaudeMdIncludes } from 'src/utils/myclimd.js';
 import { KeyboardShortcutHint } from '../design-system/KeyboardShortcutHint.js';
 import { ConfigurableShortcutHint } from '../ConfigurableShortcutHint.js';
 import { Byline } from '../design-system/Byline.js';

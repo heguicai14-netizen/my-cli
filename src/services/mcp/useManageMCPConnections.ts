@@ -79,7 +79,7 @@ import {
 import {
   clearClaudeAIMcpConfigsCache,
   fetchClaudeAIMcpConfigsIfEligible,
-} from './claudeai.js'
+} from './mycliai.js'
 import { registerElicitationHandler } from './elicitationHandler.js'
 import { getMcpPrefix } from './mcpStringUtils.js'
 import { commandBelongsToServer, excludeStalePluginClients } from './utils.js'

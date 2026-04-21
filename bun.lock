@@ -6,7 +6,7 @@
       "name": "@anthropic-ai/claude-code",
       "dependencies": {
         "@alcalzone/ansi-tokenize": "*",
-        "@ant/claude-for-chrome-mcp": "file:./shims/ant-claude-for-chrome-mcp",
+        "@ant/claude-for-chrome-mcp": "file:./shims/ant-mycli-for-chrome-mcp",
         "@ant/computer-use-input": "file:./shims/ant-computer-use-input",
         "@ant/computer-use-mcp": "file:./shims/ant-computer-use-mcp",
         "@ant/computer-use-swift": "file:./shims/ant-computer-use-swift",
@@ -113,7 +113,7 @@
   "packages": {
     "@alcalzone/ansi-tokenize": ["@alcalzone/ansi-tokenize@0.3.0", "", { "dependencies": { "ansi-styles": "^6.2.1", "is-fullwidth-code-point": "^5.0.0" } }, "sha512-p+CMKJ93HFmLkjXKlXiVGlMQEuRb6H0MokBSwUsX+S6BRX8eV5naFZpQJFfJHjRZY0Hmnqy1/r6UWl3x+19zYA=="],
 
-    "@ant/claude-for-chrome-mcp": ["@ant/claude-for-chrome-mcp@file:shims/ant-claude-for-chrome-mcp", {}],
+    "@ant/claude-for-chrome-mcp": ["@ant/claude-for-chrome-mcp@file:shims/ant-mycli-for-chrome-mcp", {}],
 
     "@ant/computer-use-input": ["@ant/computer-use-input@file:shims/ant-computer-use-input", {}],
 

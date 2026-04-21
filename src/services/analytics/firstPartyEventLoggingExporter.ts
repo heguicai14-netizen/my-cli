@@ -13,7 +13,7 @@ import {
   getIsNonInteractiveSession,
   getSessionId,
 } from '../../bootstrap/state.js'
-import { ClaudeCodeInternalEvent } from '../../types/generated/events_mono/claude_code/v1/claude_code_internal_event.js'
+import { ClaudeCodeInternalEvent } from '../../types/generated/events_mono/mycli_code/v1/mycli_code_internal_event.js'
 import { GrowthbookExperimentEvent } from '../../types/generated/events_mono/growthbook/v1/growthbook_experiment_event.js'
 import {
   getClaudeAIOAuthTokens,
