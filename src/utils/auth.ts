@@ -30,10 +30,18 @@ export type OrgValidationResult =
   | { valid: true }
   | { valid: false; message: string }
 
-// ——— API key: sole source is settings.apiKey ———
+// ——— API key: settings.apiKey, or the active provider's apiKey ———
 
 export function getAnthropicApiKey(): string | null {
-  return getSettings_DEPRECATED()?.apiKey ?? null
+  const settings = getSettings_DEPRECATED()
+  if (settings?.apiKey) return settings.apiKey
+  const providers = settings?.providers
+  const activeProviderId = settings?.provider
+  if (providers && activeProviderId) {
+    const providerApiKey = providers[activeProviderId]?.apiKey
+    if (providerApiKey) return providerApiKey
+  }
+  return null
 }
 
 export function getAnthropicApiKeyWithSource(_opts?: {

@@ -21,6 +21,7 @@ export type ConfiguredProvider = {
   type?: ConfiguredProviderType
   name?: string
   baseURL?: string
+  apiKey?: string
   apiKeyEnv?: string
   authTokenEnv?: string
   defaultModel?: string
@@ -36,6 +37,7 @@ type ActiveProviderConfig = {
   type: ConfiguredProviderType
   name: string
   baseURL?: string
+  apiKey?: string
   apiKeyEnv?: string
   authTokenEnv?: string
   defaultModel?: string
@@ -294,6 +296,7 @@ export function getProviderConfigById(
     type: resolveConfiguredProviderType(providerId, configured),
     name: configured.name ?? providerId,
     baseURL: configured.baseURL,
+    apiKey: configured.apiKey,
     apiKeyEnv: configured.apiKeyEnv,
     authTokenEnv: configured.authTokenEnv,
     defaultModel: configured.defaultModel,
@@ -369,9 +372,44 @@ export function getConfiguredCustomModels(): string[] | undefined {
     : undefined
 }
 
+export type ConfiguredModelEntry = {
+  model: string
+  providerId: string
+  providerName: string
+}
+
+/**
+ * Aggregate configured models across ALL providers in settings.json so that
+ * /model can switch between them. Unlike getConfiguredCustomModels() which
+ * only returns the active provider's models, this walks every configured
+ * provider and tags each model with its owning providerId.
+ */
+export function getAllConfiguredModelEntries(): ConfiguredModelEntry[] {
+  const entries: ConfiguredModelEntry[] = []
+  for (const [providerId, provider] of Object.entries(getConfiguredProviders())) {
+    const providerName = provider.name ?? providerId
+    for (const model of provider.models ?? []) {
+      if (typeof model === 'string' && model.length > 0) {
+        entries.push({ model, providerId, providerName })
+      }
+    }
+  }
+  return entries
+}
+
+/**
+ * Find which provider owns a given model id. Returns undefined if no
+ * configured provider lists it. When multiple providers list the same
+ * model id, returns the first match in provider-iteration order.
+ */
+export function findProviderForModel(model: string): string | undefined {
+  return getAllConfiguredModelEntries().find(e => e.model === model)?.providerId
+}
+
 export function getConfiguredProviderApiKey(): string | undefined {
-  const apiKeyEnv = getActiveProviderConfig().apiKeyEnv
-  return apiKeyEnv ? process.env[apiKeyEnv] : undefined
+  const provider = getActiveProviderConfig()
+  if (provider.apiKey) return provider.apiKey
+  return provider.apiKeyEnv ? process.env[provider.apiKeyEnv] : undefined
 }
 
 export function getConfiguredGitHubProviderAuthToken(

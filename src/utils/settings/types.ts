@@ -126,6 +126,7 @@ export const ProviderConfigSchema = lazySchema(() =>
     type: ProviderTypeSchema().optional(),
     name: z.string().optional(),
     baseURL: z.string().optional(),
+    apiKey: z.string().optional(),
     apiKeyEnv: z.string().optional(),
     authTokenEnv: z.string().optional(),
     defaultModel: z.string().optional(),

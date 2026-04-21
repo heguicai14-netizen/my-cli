@@ -32,7 +32,7 @@ import {
 } from './model.js'
 import { has1mContext } from '../context.js'
 import { getGlobalConfig } from '../config.js'
-import { getConfiguredCustomModels } from './providerConfig.js'
+import { getAllConfiguredModelEntries, getConfiguredCustomModels } from './providerConfig.js'
 
 // @[MODEL LAUNCH]: Update all the available and default model option strings below.
 
@@ -44,37 +44,31 @@ export type ModelOption = {
 }
 
 function getConfiguredCustomModelOptions(): ModelOption[] {
-  const configuredModels = getConfiguredCustomModels() as unknown[] | undefined
-  if (!configuredModels?.length) {
-    return []
+  // Aggregate models across ALL configured providers so /model can switch
+  // between them and auto-update the active provider on selection.
+  const entries = getAllConfiguredModelEntries()
+  if (entries.length > 0) {
+    const options: ModelOption[] = []
+    for (const { model, providerName } of entries) {
+      if (options.some(existing => existing.value === model)) continue
+      options.push({
+        value: model,
+        label: model,
+        description: providerName,
+      })
+    }
+    return options
   }
 
-  return configuredModels.flatMap(model => {
-    if (typeof model === 'string' && model.length > 0) {
-      return [{ value: model, label: model, description: 'Custom model' }]
-    }
-
-    if (!model || typeof model !== 'object') {
-      return []
-    }
-
-    const config = model as Record<string, unknown>
-    const value = config.model ?? config.value ?? config.id ?? config.name
-    if (typeof value !== 'string' || value.length === 0) {
-      return []
-    }
-
-    const label =
-      typeof config.label === 'string' && config.label.length > 0
-        ? config.label
-        : value
-    const description =
-      typeof config.description === 'string' && config.description.length > 0
-        ? config.description
-        : 'Custom model'
-
-    return [{ value, label, description }]
-  })
+  // Fallback: legacy path when providers are empty but the active provider
+  // resolver surfaces a models list (e.g. via ANTHROPIC_CUSTOM_MODEL_OPTION).
+  const configuredModels = getConfiguredCustomModels()
+  if (!configuredModels?.length) return []
+  return configuredModels.map(model => ({
+    value: model,
+    label: model,
+    description: 'Custom model',
+  }))
 }
 
 export function getDefaultOptionForUser(fastMode = false): ModelOption {

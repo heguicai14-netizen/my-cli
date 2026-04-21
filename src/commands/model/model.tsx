@@ -14,7 +14,20 @@ import { MODEL_ALIASES } from '../../utils/model/aliases.js';
 import { checkOpus1mAccess, checkSonnet1mAccess } from '../../utils/model/check1mAccess.js';
 import { getDefaultMainLoopModelSetting, isOpus1mMergeEnabled, renderDefaultModelSetting } from '../../utils/model/model.js';
 import { isModelAllowed } from '../../utils/model/modelAllowlist.js';
+import { findProviderForModel, getStoredProviderId, normalizeProviderSettingValue } from '../../utils/model/providerConfig.js';
+import { updateSettingsForSource } from '../../utils/settings/settings.js';
 import { validateModel } from '../../utils/model/validateModel.js';
+function syncProviderForModel(model: string | null): string | undefined {
+  if (!model) return undefined;
+  const targetProviderId = findProviderForModel(model);
+  if (!targetProviderId) return undefined;
+  const currentProviderId = getStoredProviderId() ?? 'firstParty';
+  if (targetProviderId === currentProviderId) return undefined;
+  updateSettingsForSource('userSettings', {
+    provider: normalizeProviderSettingValue(targetProviderId),
+  });
+  return targetProviderId;
+}
 function ModelPickerWrapper(t0) {
   const $ = _c(17);
   const {
@@ -55,7 +68,11 @@ function ModelPickerWrapper(t0) {
         mainLoopModel: model,
         mainLoopModelForSession: null
       }));
+      const switchedProviderId = syncProviderForModel(model);
       let message = `Set model to ${chalk.bold(renderModelLabel(model))}`;
+      if (switchedProviderId) {
+        message = message + ` · Provider switched to ${chalk.bold(switchedProviderId)}`;
+      }
       if (effort !== undefined) {
         message = message + ` with ${chalk.bold(effort)} effort`;
       }
@@ -201,7 +218,11 @@ function SetModelAndClose({
         mainLoopModel: modelValue,
         mainLoopModelForSession: null
       }));
+      const switchedProviderId = syncProviderForModel(modelValue);
       let message = `Set model to ${chalk.bold(renderModelLabel(modelValue))}`;
+      if (switchedProviderId) {
+        message += ` · Provider switched to ${chalk.bold(switchedProviderId)}`;
+      }
       let wasFastModeToggledOn = undefined;
       if (isFastModeEnabled()) {
         clearFastModeCooldown();
