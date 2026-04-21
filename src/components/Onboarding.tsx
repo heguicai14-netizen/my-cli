@@ -124,20 +124,8 @@ export function Onboarding({
     id: 'theme',
     component: themeStep
   });
-  if (apiKeyNeedingApproval) {
-    steps.push({
-      id: 'api-key',
-      component: <ApproveApiKey customApiKeyTruncated={apiKeyNeedingApproval} onDone={handleApiKeyDone} />
-    });
-  }
-  if (oauthEnabled) {
-    steps.push({
-      id: 'oauth',
-      component: <SkippableStep skip={skipOAuth} onSkip={goToNextStep}>
-          <ConsoleOAuthFlow onDone={goToNextStep} />
-        </SkippableStep>
-    });
-  }
+  // OAuth login + ANTHROPIC_API_KEY approval steps removed — auth is now
+  // read from ~/.mycli/settings.json. Nothing to prompt during onboarding.
   steps.push({
     id: 'security',
     component: securityStep
