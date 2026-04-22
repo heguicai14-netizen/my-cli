@@ -29,7 +29,11 @@ import {
   isNonCustomOpusModel,
 } from 'src/utils/model/model.js'
 import { getModelStrings } from 'src/utils/model/modelStrings.js'
-import { getAPIProvider } from 'src/utils/model/providers.js'
+import {
+  getAPIProvider,
+  isFirstPartyAnthropicBaseUrl,
+} from 'src/utils/model/providers.js'
+import { getProviderDisplayName } from 'src/utils/model/providerConfig.js'
 import { getIsNonInteractiveSession } from '../../bootstrap/state.js'
 import {
   API_PDF_MAX_PAGES,
@@ -1191,6 +1195,17 @@ export function getErrorMessageIfRefusal(
 
   logEvent('tengu_refusal_api_response', {})
 
+  const content = isFirstPartyAnthropicBaseUrl()
+    ? buildAnthropicRefusalMessage(model)
+    : buildUpstreamRefusalMessage()
+
+  return createAssistantAPIErrorMessage({
+    content,
+    error: 'invalid_request',
+  })
+}
+
+function buildAnthropicRefusalMessage(model: string): string {
   const baseMessage = getIsNonInteractiveSession()
     ? `${API_ERROR_MESSAGE_PREFIX}: Claude Code is unable to respond to this request, which appears to violate our Usage Policy (https://www.anthropic.com/legal/aup). Try rephrasing the request or attempting a different approach.`
     : `${API_ERROR_MESSAGE_PREFIX}: Claude Code is unable to respond to this request, which appears to violate our Usage Policy (https://www.anthropic.com/legal/aup). Please double press esc to edit your last message or start a new session for Claude Code to assist with a different task.`
@@ -1200,8 +1215,14 @@ export function getErrorMessageIfRefusal(
       ? ' If you are seeing this refusal repeatedly, try running /model claude-sonnet-4-20250514 to switch models.'
       : ''
 
-  return createAssistantAPIErrorMessage({
-    content: baseMessage + modelSuggestion,
-    error: 'invalid_request',
-  })
+  return baseMessage + modelSuggestion
+}
+
+function buildUpstreamRefusalMessage(): string {
+  const providerName = getProviderDisplayName() || 'the upstream provider'
+  const followUp = getIsNonInteractiveSession()
+    ? 'Try rephrasing the request, shortening the context, or switching to a different model.'
+    : 'Please double press esc to edit your last message, or start a new session. Rephrasing, shortening the context, or switching to a different model via /model often helps.'
+
+  return `${API_ERROR_MESSAGE_PREFIX}: The response was blocked by ${providerName}'s content safety policy (finish_reason=content_filter). This is enforced by the upstream provider, not by Claude Code. ${followUp}`
 }
