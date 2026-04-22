@@ -88,14 +88,14 @@ export function CondensedLogo() {
   }
   let t5;
   if ($[8] === Symbol.for("react.memo_cache_sentinel")) {
-    t5 = <Text bold={true}>Claude Code</Text>;
+    t5 = <Text bold={true}>MY CLI</Text>;
     $[8] = t5;
   } else {
     t5 = $[8];
   }
   let t6;
   if ($[9] !== truncatedVersion) {
-    t6 = <Text>{t5}{" "}<Text dimColor={true}>v{truncatedVersion}</Text></Text>;
+    t6 = <Text>{t5}{" "}<Text dimColor={true}>清晰的思路大于虚假的努力</Text></Text>;
     $[9] = truncatedVersion;
     $[10] = t6;
   } else {

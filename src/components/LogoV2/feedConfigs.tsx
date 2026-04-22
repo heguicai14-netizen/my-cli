@@ -1,5 +1,7 @@
 import figures from 'figures';
+import { readFileSync } from 'fs';
 import { homedir } from 'os';
+import { join } from 'path';
 import * as React from 'react';
 import { Box, Text } from '../../ink.js';
 import type { Step } from '../../projectOnboardingState.js';
@@ -45,6 +47,20 @@ export function createWhatsNewFeed(releaseNotes: string[]): FeedConfig {
     lines,
     footer: lines.length > 0 ? '/release-notes for more' : undefined,
     emptyMessage
+  };
+}
+export function createTodoFeed(): FeedConfig {
+  const path = join(homedir(), '.mycli', 'todo.md');
+  let lines: FeedLine[] = [];
+  try {
+    const content = readFileSync(path, 'utf-8');
+    lines = content.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 5).map(text => ({ text }));
+  } catch {}
+  return {
+    title: '今日 TODO',
+    lines,
+    footer: lines.length > 0 ? 'edit: ~/.mycli/todo.md' : undefined,
+    emptyMessage: '新建 ~/.mycli/todo.md 开始记录'
   };
 }
 export function createProjectOnboardingFeed(steps: Step[]): FeedConfig {

@@ -46,6 +46,7 @@ export function AutoUpdater({
   const isUpdatingRef = useRef(isUpdating);
   isUpdatingRef.current = isUpdating;
   const checkForUpdates = React.useCallback(async () => {
+    return;
     if (isUpdatingRef.current) {
       return;
     }
