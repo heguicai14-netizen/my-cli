@@ -7,9 +7,16 @@ import { isEnvDefinedFalsy } from '../utils/envUtils.js'
 import { getAPIProvider } from '../utils/model/providers.js'
 import { getWorkload } from '../utils/workloadContext.js'
 
-const DEFAULT_PREFIX = `You are Claude Code, Anthropic's official CLI for Claude.`
-const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX = `You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.`
-const AGENT_SDK_PREFIX = `You are a Claude agent, built on Anthropic's Claude Agent SDK.`
+// mycli rebrand: dropped "Claude Code, Anthropic's official CLI for Claude"
+// because the fork runs against arbitrary providers (Kimi, aigocode, etc.)
+// and self-identifying as Claude confuses non-Claude models. CLI_SYSPROMPT_
+// PREFIXES is auto-rebuilt from these constants, so splitSysPromptPrefix
+// detection stays in sync. Session-resume cache-scope classification for
+// transcripts written before this rebrand will miss the prefix match (falls
+// back to un-classified), but cache correctness is unaffected.
+const DEFAULT_PREFIX = `You are mycli, an AI coding assistant CLI.`
+const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX = `You are mycli, an AI coding assistant CLI, running within an agent SDK.`
+const AGENT_SDK_PREFIX = `You are an agent for mycli, an AI coding assistant CLI, running within an agent SDK.`
 
 const CLI_SYSPROMPT_PREFIX_VALUES = [
   DEFAULT_PREFIX,
