@@ -1,5 +1,4 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import axios from 'axios'
 import { execa } from 'execa'
 import capitalize from 'lodash-es/capitalize.js'
 import memoize from 'lodash-es/memoize.js'
@@ -26,7 +25,6 @@ import { getAncestorPidsAsync } from './genericProcessUtils.js'
 import { isJetBrainsPluginInstalledCached } from './jetbrains.js'
 import { logError } from './log.js'
 import { getPlatform } from './platform.js'
-import { lt } from './semver.js'
 
 // Lazy: IdeOnboardingDialog.tsx pulls React/ink; only needed in interactive onboarding path
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -588,37 +586,13 @@ export interface IDEExtensionInstallationStatus {
 }
 
 export async function maybeInstallIDEExtension(
-  ideType: IdeType,
+  _ideType: IdeType,
 ): Promise<IDEExtensionInstallationStatus | null> {
-  try {
-    // Install/update the extension
-    const installedVersion = await installIDEExtension(ideType)
-    // Only track successful installations
-    logEvent('tengu_ext_installed', {})
-
-    // Set diff tool config to auto if it has not been set already
-    const globalConfig = getGlobalConfig()
-    if (!globalConfig.diffTool) {
-      saveGlobalConfig(current => ({ ...current, diffTool: 'auto' }))
-    }
-    return {
-      installed: true,
-      error: null,
-      installedVersion,
-      ideType: ideType,
-    }
-  } catch (error) {
-    logEvent('tengu_ext_install_error', {})
-    // Handle installation errors
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logError(error as Error)
-    return {
-      installed: false,
-      error: errorMessage,
-      installedVersion: null,
-      ideType: ideType,
-    }
-  }
+  // mycli rebrand: upstream auto-installed `anthropic.claude-code` from the
+  // VSCode Marketplace into the user's IDE. We do not ship an mycli-branded
+  // extension, and installing the upstream one would wire the user back to
+  // Anthropic endpoints. The install path is intentionally gone.
+  return null
 }
 
 let currentIDESearch: AbortController | null = null
@@ -876,37 +850,11 @@ export async function isIDEExtensionInstalled(
   return false
 }
 
-async function installIDEExtension(ideType: IdeType): Promise<string | null> {
-  if (isVSCodeIde(ideType)) {
-    const command = await getVSCodeIDECommand(ideType)
-
-    if (command) {
-      if (process.env.USER_TYPE === 'ant') {
-        return await installFromArtifactory(command)
-      }
-      let version = await getInstalledVSCodeExtensionVersion(command)
-      // If it's not installed or the version is older than the one we have bundled,
-      if (!version || lt(version, getClaudeCodeVersion())) {
-        // `code` may crash when invoked too quickly in succession
-        await sleep(500)
-        const result = await execFileNoThrowWithCwd(
-          command,
-          ['--force', '--install-extension', 'anthropic.claude-code'],
-          {
-            env: getInstallationEnv(),
-          },
-        )
-        if (result.code !== 0) {
-          throw new Error(`${result.code}: ${result.error} ${result.stderr}`)
-        }
-        version = getClaudeCodeVersion()
-      }
-      return version
-    }
-  }
-  // No automatic installation for JetBrains IDEs as it is not supported in native
-  // builds. We show a prominent notice for them to download from the marketplace
-  // instead.
+async function installIDEExtension(_ideType: IdeType): Promise<string | null> {
+  // mycli rebrand: the upstream `anthropic.claude-code` VSCode/Cursor extension
+  // install path is gone — we don't ship a mycli-branded extension and we do
+  // not want to reach out to the Anthropic Marketplace listing or the internal
+  // Artifactory. The function is left as an import-stable no-op.
   return null
 }
 
@@ -924,29 +872,6 @@ function getInstallationEnv(): NodeJS.ProcessEnv | undefined {
   return undefined
 }
 
-function getClaudeCodeVersion() {
-  return MACRO.VERSION
-}
-
-async function getInstalledVSCodeExtensionVersion(
-  command: string,
-): Promise<string | null> {
-  const { stdout } = await execFileNoThrow(
-    command,
-    ['--list-extensions', '--show-versions'],
-    {
-      env: getInstallationEnv(),
-    },
-  )
-  const lines = stdout?.split('\n') || []
-  for (const line of lines) {
-    const [extensionId, version] = line.split('@')
-    if (extensionId === 'anthropic.claude-code' && version) {
-      return version
-    }
-  }
-  return null
-}
 
 function getVSCodeIDECommandByParentProcess(): string | null {
   try {
@@ -1287,64 +1212,19 @@ export async function closeOpenDiffs(
  */
 export async function initializeIdeIntegration(
   onIdeDetected: (ide: DetectedIDEInfo | null) => void,
-  ideToInstallExtension: IdeType | null,
-  onShowIdeOnboarding: () => void,
-  onInstallationComplete: (
+  _ideToInstallExtension: IdeType | null,
+  _onShowIdeOnboarding: () => void,
+  _onInstallationComplete: (
     status: IDEExtensionInstallationStatus | null,
   ) => void,
 ): Promise<void> {
-  // Don't await so we don't block startup, but return a promise that resolves with the status
+  // mycli rebrand: the upstream auto-install flow that silently pushed
+  // `anthropic.claude-code` into the user's VSCode/Cursor/Windsurf is gone.
+  // We still probe for a running IDE so in-session MCP bridge connections
+  // (via the SSE/ws IDE transport) keep working when the user has manually
+  // installed a compatible extension — but we never install one ourselves
+  // and never show the install-success onboarding dialog.
   void findAvailableIDE().then(onIdeDetected)
-
-  const shouldAutoInstall = getGlobalConfig().autoInstallIdeExtension ?? true
-  if (
-    !isEnvTruthy(process.env.CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL) &&
-    shouldAutoInstall
-  ) {
-    const ideType = ideToInstallExtension ?? getTerminalIdeType()
-    if (ideType) {
-      if (isVSCodeIde(ideType)) {
-        void isIDEExtensionInstalled(ideType).then(async isAlreadyInstalled => {
-          void maybeInstallIDEExtension(ideType)
-            .catch(error => {
-              const ideInstallationStatus: IDEExtensionInstallationStatus = {
-                installed: false,
-                error: error.message || 'Installation failed',
-                installedVersion: null,
-                ideType: ideType,
-              }
-              return ideInstallationStatus
-            })
-            .then(status => {
-              onInstallationComplete(status)
-
-              if (status?.installed) {
-                // If we installed and don't yet have an IDE, search again.
-                void findAvailableIDE().then(onIdeDetected)
-              }
-
-              if (
-                !isAlreadyInstalled &&
-                status?.installed === true &&
-                !ideOnboardingDialog().hasIdeOnboardingDialogBeenShown()
-              ) {
-                onShowIdeOnboarding()
-              }
-            })
-        })
-      } else if (isJetBrainsIde(ideType)) {
-        // Always check installation to populate the sync cache used by status notices
-        void isIDEExtensionInstalled(ideType).then(async installed => {
-          if (
-            installed &&
-            !ideOnboardingDialog().hasIdeOnboardingDialogBeenShown()
-          ) {
-            onShowIdeOnboarding()
-          }
-        })
-      }
-    }
-  }
 }
 
 /**
@@ -1389,106 +1269,3 @@ const detectHostIP = memoize(
   (isIdeRunningInWindows, port) => `${isIdeRunningInWindows}:${port}`,
 )
 
-async function installFromArtifactory(command: string): Promise<string> {
-  // Read auth token from ~/.npmrc
-  const npmrcPath = join(os.homedir(), '.npmrc')
-  let authToken: string | null = null
-  const fs = getFsImplementation()
-
-  try {
-    const npmrcContent = await fs.readFile(npmrcPath, {
-      encoding: 'utf8',
-    })
-    const lines = npmrcContent.split('\n')
-    for (const line of lines) {
-      // Look for the artifactory auth token line
-      const match = line.match(
-        /\/\/artifactory\.infra\.ant\.dev\/artifactory\/api\/npm\/npm-all\/:_authToken=(.+)/,
-      )
-      if (match && match[1]) {
-        authToken = match[1].trim()
-        break
-      }
-    }
-  } catch (error) {
-    logError(error as Error)
-    throw new Error(`Failed to read npm authentication: ${error}`)
-  }
-
-  if (!authToken) {
-    throw new Error('No artifactory auth token found in ~/.npmrc')
-  }
-
-  // Fetch the version from artifactory
-  const versionUrl =
-    'https://artifactory.infra.ant.dev/artifactory/armorcode-claude-code-internal/claude-vscode-releases/stable'
-
-  try {
-    const versionResponse = await axios.get(versionUrl, {
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-      },
-    })
-
-    const version = versionResponse.data.trim()
-    if (!version) {
-      throw new Error('No version found in artifactory response')
-    }
-
-    // Download the .vsix file from artifactory
-    const vsixUrl = `https://artifactory.infra.ant.dev/artifactory/armorcode-claude-code-internal/claude-vscode-releases/${version}/claude-code.vsix`
-    const tempVsixPath = join(
-      os.tmpdir(),
-      `claude-code-${version}-${Date.now()}.vsix`,
-    )
-
-    try {
-      const vsixResponse = await axios.get(vsixUrl, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-        responseType: 'stream',
-      })
-
-      // Write the downloaded file to disk
-      const writeStream = getFsImplementation().createWriteStream(tempVsixPath)
-      await new Promise<void>((resolve, reject) => {
-        vsixResponse.data.pipe(writeStream)
-        writeStream.on('finish', resolve)
-        writeStream.on('error', reject)
-      })
-
-      // Install the .vsix file
-      // Add delay to prevent code command crashes
-      await sleep(500)
-
-      const result = await execFileNoThrowWithCwd(
-        command,
-        ['--force', '--install-extension', tempVsixPath],
-        {
-          env: getInstallationEnv(),
-        },
-      )
-
-      if (result.code !== 0) {
-        throw new Error(`${result.code}: ${result.error} ${result.stderr}`)
-      }
-
-      return version
-    } finally {
-      // Clean up the temporary file
-      try {
-        await fs.unlink(tempVsixPath)
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      throw new Error(
-        `Failed to fetch extension version from artifactory: ${error.message}`,
-      )
-    }
-    throw error
-  }
-}

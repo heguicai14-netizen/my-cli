@@ -27,7 +27,8 @@ import type {
   ContextCollapseSnapshotEntry,
   PersistedWorktreeSession,
 } from '../types/logs.js'
-import type { Message } from '../types/message.js'
+import type { AttachmentMessage, Message } from '../types/message.js'
+import { createTodoRestoreAttachmentIfNeeded } from '../services/compact/compact.js'
 import { renameRecordingForSession } from './asciicast.js'
 import { clearMemoryFileCaches } from './myclimd.js'
 import {
@@ -95,11 +96,18 @@ function extractTodosFromTranscript(messages: Message[]): TodoList {
 /**
  * Restore session state (file history, attribution, todos) from log on resume.
  * Used by both SDK (print.ts) and interactive (REPL.tsx, main.tsx) resume paths.
+ *
+ * Returns a todo-restore AttachmentMessage (or null) that the caller must
+ * append to the resumed message history. Without it, the model loses
+ * awareness of the live task/todo list after resume — the data survives on
+ * disk (V2) or in AppState (V1), but the model only "sees" the list via
+ * tool_use/tool_result replay which goes stale/absent across resume, so
+ * the next assistant turn would act as if there's no checklist.
  */
-export function restoreSessionStateFromLog(
+export async function restoreSessionStateFromLog(
   result: ResumeResult,
   setAppState: (f: (prev: AppState) => AppState) => void,
-): void {
+): Promise<AttachmentMessage | null> {
   // Restore file history state
   if (result.fileHistorySnapshots && result.fileHistorySnapshots.length > 0) {
     fileHistoryRestoreStateFromLog(result.fileHistorySnapshots, newState => {
@@ -137,16 +145,30 @@ export function restoreSessionStateFromLog(
 
   // Restore TodoWrite state from transcript (SDK/non-interactive only).
   // Interactive mode uses file-backed v2 tasks, so AppState.todos is unused there.
+  let restoredV1Todos: TodoList | null = null
+  let restoredV1AgentId: string | null = null
   if (!isTodoV2Enabled() && result.messages && result.messages.length > 0) {
     const todos = extractTodosFromTranscript(result.messages)
     if (todos.length > 0) {
-      const agentId = getSessionId()
+      restoredV1Todos = todos
+      restoredV1AgentId = getSessionId()
       setAppState(prev => ({
         ...prev,
-        todos: { ...prev.todos, [agentId]: todos },
+        todos: { ...prev.todos, [restoredV1AgentId!]: todos },
       }))
     }
   }
+
+  // Build a post-resume todo-restore attachment. Mirrors the post-compact
+  // injection (see createTodoRestoreAttachmentIfNeeded in compact.ts). For
+  // V1 we close over the freshly-extracted todos rather than reading
+  // AppState — the setAppState call above is async-queued, so a read here
+  // could race with the update.
+  const v1Accessor =
+    restoredV1Todos && restoredV1AgentId
+      ? () => ({ todos: { [restoredV1AgentId!]: restoredV1Todos! } })
+      : null
+  return createTodoRestoreAttachmentIfNeeded(undefined, v1Accessor)
 }
 
 /**
@@ -530,6 +552,20 @@ export async function processResumedConversation(
     context.cliAgents,
     context.agentDefinitions,
   )
+
+  // Append a todo-restore attachment so the model doesn't lose awareness of
+  // the live task list across CLI --continue/--resume. V1 AppState isn't
+  // rebuilt on this path (no equivalent of restoreSessionStateFromLog is
+  // called), so we pass null and only V2 disk-backed tasks are restored —
+  // V1 (SDK/non-interactive) goes through print.ts which calls
+  // restoreSessionStateFromLog directly.
+  const todoRestoreAttachment = await createTodoRestoreAttachmentIfNeeded(
+    undefined,
+    null,
+  )
+  if (todoRestoreAttachment) {
+    result.messages.push(todoRestoreAttachment)
+  }
 
   return {
     messages: result.messages,

@@ -41,6 +41,8 @@ import { useHasSelection, useSelection } from '../../ink/hooks/use-selection.js'
 import { getGlobalConfig, saveGlobalConfig } from '../../utils/config.js';
 import { getPlatform } from '../../utils/platform.js';
 import { PrBadge } from '../PrBadge.js';
+import { useMainLoopModel } from '../../hooks/useMainLoopModel.js';
+import { renderModelName } from '../../utils/model/model.js';
 
 // Dead code elimination: conditional import for proactive mode
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -314,9 +316,11 @@ function ModeIndicator({
   // Match the same logic as TeamStatus to avoid trailing separator
   // In-process mode uses Shift+Down/Up navigation, not footer teams menu
   const hasTeams = isAgentSwarmsEnabled() && !isInProcessEnabled() && teamContext !== undefined && count(Object.values(teamContext.teammates), t_0 => t_0.name !== 'team-lead') > 0;
+  const mainLoopModel = useMainLoopModel();
   if (mode === 'bash') {
     return <Text color="bashBorder">! for bash mode</Text>;
   }
+  const modelPart = <Text dimColor key="model">{renderModelName(mainLoopModel)}</Text>;
   const currentMode = toolPermissionContext?.mode;
   const hasActiveMode = !isDefaultMode(currentMode);
   const viewedTask = viewingAgentTaskId ? tasks[viewingAgentTaskId] : undefined;
@@ -387,7 +391,7 @@ function ModeIndicator({
   if (hasTeammatePills) {
     // Don't append spinner hints when viewing a completed teammate —
     // the "esc to return to team lead" hint already replaces "esc to interrupt"
-    const otherParts = [...(modePart ? [modePart] : []), ...parts, ...(isViewingCompletedTeammate ? [] : hintParts)];
+    const otherParts = [modelPart, ...(modePart ? [modePart] : []), ...parts, ...(isViewingCompletedTeammate ? [] : hintParts)];
     return <Box flexDirection="column">
         <Box>
           <BackgroundTaskStatus tasksSelected={tasksSelected} isViewingTeammate={isViewingTeammate} teammateFooterIndex={teammateFooterIndex} isLeaderIdle={!isLoading} onOpenDialog={onOpenTasksDialog} />
@@ -453,21 +457,17 @@ function ModeIndicator({
       </Text>);
   }
 
-  // In fullscreen the bottom section is flexShrink:0 — every row here
-  // is a row stolen from the ScrollBox. This component must have a STABLE
-  // height so the footer never grows/shrinks and shifts scroll content.
-  // Returning null when parts is empty (e.g. StatusLine on → suppressHint
-  // → showHint=false → no "? for shortcuts") would let a later-added
-  // part (e.g. the selection copy/native-select hints) grow the column
-  // from 0→1 row. Always render 1 row in fullscreen; return a space when
-  // empty so Yoga reserves the row without painting anything visible.
-  if (parts.length === 0 && !tasksPart && !modePart) {
-    return isFullscreenEnvEnabled() ? <Text> </Text> : null;
-  }
-
-  // flexShrink=0 keeps mode + pill at natural width; the remaining parts
-  // truncate at the tail as one string inside the Text wrapper.
+  // flexShrink=0 keeps model + mode + pill at natural width; the remaining
+  // parts truncate at the tail as one string inside the Text wrapper.
+  // modelPart is always rendered (unlike modePart/tasksPart/parts which
+  // can all be empty) — the footer row is thus never blank, which matches
+  // the fullscreen-row-reservation the old placeholder branch guaranteed.
+  const hasTrailing = modePart || tasksPart || parts.length > 0;
   return <Box height={1} overflow="hidden">
+      <Box flexShrink={0}>
+        {modelPart}
+        {hasTrailing && <Text dimColor> · </Text>}
+      </Box>
       {modePart && <Box flexShrink={0}>
           {modePart}
           {(tasksPart || parts.length > 0) && <Text dimColor> · </Text>}

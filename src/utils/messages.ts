@@ -3697,6 +3697,35 @@ Read the team config to discover your teammates' names. Check the task list peri
         }),
       ])
     }
+    case 'todo_restore': {
+      if (attachment.source === 'v2') {
+        const items = attachment.tasks
+          .map(t => `#${t.id}. [${t.status}] ${t.subject}`)
+          .join('\n')
+        if (items.length === 0) return []
+        const message =
+          `The task list below was active before the last compaction and is still live on disk. ` +
+          `Do NOT recreate these tasks or treat them as fresh — they already exist. ` +
+          `Continue tracking progress with ${TASK_UPDATE_TOOL_NAME}, and call ${TASK_CREATE_TOOL_NAME} only for genuinely new work.\n\n` +
+          `Active tasks:\n\n${items}`
+        return wrapMessagesInSystemReminder([
+          createUserMessage({ content: message, isMeta: true }),
+        ])
+      }
+      // V1 TodoWrite path (non-interactive / SDK sessions).
+      const items = attachment.todos
+        .map((t, i) => `${i + 1}. [${t.status}] ${t.content}`)
+        .join('\n')
+      if (items.length === 0) return []
+      const message =
+        `The todo list below was active before the last compaction and is still live in session state. ` +
+        `Do NOT recreate these todos or treat them as fresh. ` +
+        `Continue tracking progress with TodoWrite.\n\n` +
+        `Active todos:\n\n${items}`
+      return wrapMessagesInSystemReminder([
+        createUserMessage({ content: message, isMeta: true }),
+      ])
+    }
     case 'nested_memory': {
       return wrapMessagesInSystemReminder([
         createUserMessage({

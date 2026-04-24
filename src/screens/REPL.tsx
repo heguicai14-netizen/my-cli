@@ -1828,8 +1828,13 @@ export function REPL({
         void copyPlanForResume(log, asSessionId(sessionId));
       }
 
-      // Restore file history and attribution state from the resumed conversation
-      restoreSessionStateFromLog(log, setAppState);
+      // Restore file history and attribution state from the resumed conversation.
+      // Returns a todo-restore attachment to append so the model doesn't lose
+      // awareness of the live checklist across resume.
+      const todoRestoreAttachment = await restoreSessionStateFromLog(log, setAppState);
+      if (todoRestoreAttachment) {
+        messages.push(todoRestoreAttachment);
+      }
       if (log.fileHistorySnapshots) {
         void copyFileHistoryForResume(log);
       }

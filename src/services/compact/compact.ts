@@ -9,7 +9,10 @@ const sessionTranscriptModule = feature('KAIROS')
 
 import { APIUserAbortError } from '@anthropic-ai/sdk'
 import { markPostCompaction } from 'src/bootstrap/state.js'
-import { getInvokedSkillsForAgent } from '../../bootstrap/state.js'
+import {
+  getInvokedSkillsForAgent,
+  getSessionId,
+} from '../../bootstrap/state.js'
 import type { QuerySource } from '../../constants/querySource.js'
 import type { CanUseToolFn } from '../../hooks/useCanUseTool.js'
 import type { Tool, ToolUseContext } from '../../Tool.js'
@@ -68,6 +71,12 @@ import {
 } from '../../utils/messages.js'
 import { expandPath } from '../../utils/path.js'
 import { getPlan, getPlanFilePath } from '../../utils/plans.js'
+import {
+  getTaskListId,
+  isTodoV2Enabled,
+  listTasks,
+} from '../../utils/tasks.js'
+import type { TodoList } from '../../utils/todo/types.js'
 import {
   isSessionActivityTrackingActive,
   sendSessionActivitySignal,
@@ -560,6 +569,15 @@ export async function compactConversation(
       postCompactFileAttachments.push(skillAttachment)
     }
 
+    // Re-announce the live task/todo list (see createTodoRestoreAttachmentIfNeeded).
+    const todoRestoreAttachment = await createTodoRestoreAttachmentIfNeeded(
+      context.agentId,
+      () => context.getAppState(),
+    )
+    if (todoRestoreAttachment) {
+      postCompactFileAttachments.push(todoRestoreAttachment)
+    }
+
     // Compaction ate prior delta attachments. Re-announce from the current
     // state so the model has tool/instruction context on the first
     // post-compact turn. Empty message history → diff against nothing →
@@ -950,6 +968,15 @@ export async function partialCompactConversation(
     const skillAttachment = createSkillAttachmentIfNeeded(context.agentId)
     if (skillAttachment) {
       postCompactFileAttachments.push(skillAttachment)
+    }
+
+    // Re-announce the live task/todo list (see createTodoRestoreAttachmentIfNeeded).
+    const todoRestoreAttachment = await createTodoRestoreAttachmentIfNeeded(
+      context.agentId,
+      () => context.getAppState(),
+    )
+    if (todoRestoreAttachment) {
+      postCompactFileAttachments.push(todoRestoreAttachment)
     }
 
     // Re-announce only what was in the summarized portion — messagesToKeep
@@ -1530,6 +1557,47 @@ export function createSkillAttachmentIfNeeded(
   return createAttachmentMessage({
     type: 'invoked_skills',
     skills,
+  })
+}
+
+/**
+ * Re-inject the live task/todo list so the model doesn't "forget" the
+ * checklist it was working against. Task state itself isn't lost — V2 tasks
+ * live on disk under ~/.mycli/tasks/, V1 todos live in AppState — but both
+ * compaction and resume drop the TaskCreate/TaskUpdate/TodoWrite
+ * tool_use + tool_result trail from the message history the model sees,
+ * so the list appears "gone" until the turn-based reminder fires (~10 turns
+ * later, per TODO_REMINDER_CONFIG). This attachment closes that window by
+ * announcing the current list on the first turn after compact/resume.
+ *
+ * @param agentId - Used for V1 todoKey resolution; falls back to session ID.
+ * @param getAppState - V1 needs AppState to read todos. Pass null in code
+ *   paths where it's unreachable (e.g. sessionMemoryCompact); V1 is then
+ *   skipped but V2 still works since it reads from disk.
+ */
+export async function createTodoRestoreAttachmentIfNeeded(
+  agentId: AgentId | undefined,
+  getAppState: (() => { todos?: Record<string, TodoList> }) | null,
+): Promise<AttachmentMessage | null> {
+  if (isTodoV2Enabled()) {
+    const tasks = await listTasks(getTaskListId())
+    if (tasks.length === 0) return null
+    return createAttachmentMessage({
+      type: 'todo_restore',
+      source: 'v2',
+      tasks,
+      itemCount: tasks.length,
+    })
+  }
+  if (!getAppState) return null
+  const todoKey = agentId ?? getSessionId()
+  const todos = getAppState().todos?.[todoKey] ?? []
+  if (todos.length === 0) return null
+  return createAttachmentMessage({
+    type: 'todo_restore',
+    source: 'v1',
+    todos,
+    itemCount: todos.length,
   })
 }
 

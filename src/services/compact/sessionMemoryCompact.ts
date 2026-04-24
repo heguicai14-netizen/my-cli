@@ -37,6 +37,7 @@ import {
   buildPostCompactMessages,
   type CompactionResult,
   createPlanAttachmentIfNeeded,
+  createTodoRestoreAttachmentIfNeeded,
 } from './compact.js'
 import { estimateMessageTokens } from './microCompact.js'
 import { getCompactUserSummaryMessage } from './prompt.js'
@@ -434,14 +435,14 @@ export function shouldUseSessionMemoryCompaction(): boolean {
 /**
  * Create a CompactionResult from session memory
  */
-function createCompactionResultFromSessionMemory(
+async function createCompactionResultFromSessionMemory(
   messages: Message[],
   sessionMemory: string,
   messagesToKeep: Message[],
   hookResults: HookResultMessage[],
   transcriptPath: string,
   agentId?: AgentId,
-): CompactionResult {
+): Promise<CompactionResult> {
   const preCompactTokenCount = tokenCountFromLastAPIResponse(messages)
 
   const boundaryMarker = createCompactBoundaryMessage(
@@ -482,7 +483,16 @@ function createCompactionResultFromSessionMemory(
   ]
 
   const planAttachment = createPlanAttachmentIfNeeded(agentId)
-  const attachments = planAttachment ? [planAttachment] : []
+  // SM-compact has no AppState accessor here — V1 todos are skipped, but
+  // V2 tasks (loaded from disk) are still restored, which is the common
+  // interactive case.
+  const todoRestoreAttachment = await createTodoRestoreAttachmentIfNeeded(
+    agentId,
+    null,
+  )
+  const attachments = [planAttachment, todoRestoreAttachment].filter(
+    (a): a is NonNullable<typeof a> => a !== null,
+  )
 
   return {
     boundaryMarker: annotateBoundaryWithPreservedSegment(
@@ -588,7 +598,7 @@ export async function trySessionMemoryCompaction(
     // Get transcript path for the summary message
     const transcriptPath = getTranscriptPath()
 
-    const compactionResult = createCompactionResultFromSessionMemory(
+    const compactionResult = await createCompactionResultFromSessionMemory(
       messages,
       sessionMemory,
       messagesToKeep,

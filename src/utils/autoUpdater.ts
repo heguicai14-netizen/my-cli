@@ -1,4 +1,3 @@
-import axios from 'axios'
 import { constants as fsConstants } from 'fs'
 import { access, writeFile } from 'fs/promises'
 import { homedir } from 'os'
@@ -25,10 +24,11 @@ import {
   readFileLines,
   writeFileLines,
 } from './shellConfig.js'
-import { jsonParse } from './slowOperations.js'
 
-const GCS_BUCKET_URL =
-  'https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases'
+// mycli rebrand: upstream auto-updater pointed at an Anthropic-owned GCS
+// bucket and npm package. We intentionally do not ship updates through these
+// channels — the module is kept for import/signature stability but every
+// network-reaching function has been neutered to a no-op.
 
 class AutoUpdaterError extends ClaudeError {}
 
@@ -317,30 +317,10 @@ export async function checkGlobalInstallPermissions(): Promise<{
 }
 
 export async function getLatestVersion(
-  channel: ReleaseChannel,
+  _channel: ReleaseChannel,
 ): Promise<string | null> {
-  const npmTag = channel === 'stable' ? 'stable' : 'latest'
-
-  // Run from home directory to avoid reading project-level .npmrc
-  // which could be maliciously crafted to redirect to an attacker's registry
-  const result = await execFileNoThrowWithCwd(
-    'npm',
-    ['view', `${MACRO.PACKAGE_URL}@${npmTag}`, 'version', '--prefer-online'],
-    { abortSignal: AbortSignal.timeout(5000), cwd: homedir() },
-  )
-  if (result.code !== 0) {
-    logForDebugging(`npm view failed with code ${result.code}`)
-    if (result.stderr) {
-      logForDebugging(`npm stderr: ${result.stderr.trim()}`)
-    } else {
-      logForDebugging('npm stderr: (empty)')
-    }
-    if (result.stdout) {
-      logForDebugging(`npm stdout: ${result.stdout.trim()}`)
-    }
-    return null
-  }
-  return result.stdout.trim()
+  // mycli rebrand: no upstream npm channel to query.
+  return null
 }
 
 export type NpmDistTags = {
@@ -353,28 +333,8 @@ export type NpmDistTags = {
  * This is used by the doctor command to show users what versions are available.
  */
 export async function getNpmDistTags(): Promise<NpmDistTags> {
-  // Run from home directory to avoid reading project-level .npmrc
-  const result = await execFileNoThrowWithCwd(
-    'npm',
-    ['view', MACRO.PACKAGE_URL, 'dist-tags', '--json', '--prefer-online'],
-    { abortSignal: AbortSignal.timeout(5000), cwd: homedir() },
-  )
-
-  if (result.code !== 0) {
-    logForDebugging(`npm view dist-tags failed with code ${result.code}`)
-    return { latest: null, stable: null }
-  }
-
-  try {
-    const parsed = jsonParse(result.stdout.trim()) as Record<string, unknown>
-    return {
-      latest: typeof parsed.latest === 'string' ? parsed.latest : null,
-      stable: typeof parsed.stable === 'string' ? parsed.stable : null,
-    }
-  } catch (error) {
-    logForDebugging(`Failed to parse dist-tags: ${error}`)
-    return { latest: null, stable: null }
-  }
+  // mycli rebrand: no upstream npm channel to query.
+  return { latest: null, stable: null }
 }
 
 /**
@@ -382,18 +342,10 @@ export async function getNpmDistTags(): Promise<NpmDistTags> {
  * This is used by installations that don't have npm (e.g. package manager installs).
  */
 export async function getLatestVersionFromGcs(
-  channel: ReleaseChannel,
+  _channel: ReleaseChannel,
 ): Promise<string | null> {
-  try {
-    const response = await axios.get(`${GCS_BUCKET_URL}/${channel}`, {
-      timeout: 5000,
-      responseType: 'text',
-    })
-    return response.data.trim()
-  } catch (error) {
-    logForDebugging(`Failed to fetch ${channel} from GCS: ${error}`)
-    return null
-  }
+  // mycli rebrand: no upstream GCS bucket to query.
+  return null
 }
 
 /**
@@ -418,118 +370,24 @@ export async function getGcsDistTags(): Promise<NpmDistTags> {
  * 2. Not all JS package versions have corresponding native packages
  * 3. This prevents rollback from listing versions that don't have native binaries
  */
-export async function getVersionHistory(limit: number): Promise<string[]> {
-  if (process.env.USER_TYPE !== 'ant') {
-    return []
-  }
-
-  // Use native package URL when available to ensure we only show versions
-  // that have native binaries (not all JS package versions have native builds)
-  const packageUrl = MACRO.NATIVE_PACKAGE_URL ?? MACRO.PACKAGE_URL
-
-  // Run from home directory to avoid reading project-level .npmrc
-  const result = await execFileNoThrowWithCwd(
-    'npm',
-    ['view', packageUrl, 'versions', '--json', '--prefer-online'],
-    // Longer timeout for version list
-    { abortSignal: AbortSignal.timeout(30000), cwd: homedir() },
-  )
-
-  if (result.code !== 0) {
-    logForDebugging(`npm view versions failed with code ${result.code}`)
-    if (result.stderr) {
-      logForDebugging(`npm stderr: ${result.stderr.trim()}`)
-    }
-    return []
-  }
-
-  try {
-    const versions = jsonParse(result.stdout.trim()) as string[]
-    // Take last N versions, then reverse to get newest first
-    return versions.slice(-limit).reverse()
-  } catch (error) {
-    logForDebugging(`Failed to parse version history: ${error}`)
-    return []
-  }
+export async function getVersionHistory(_limit: number): Promise<string[]> {
+  // mycli rebrand: no upstream package to query version history from.
+  return []
 }
 
 export async function installGlobalPackage(
-  specificVersion?: string | null,
+  _specificVersion?: string | null,
 ): Promise<InstallStatus> {
-  if (!(await acquireLock())) {
-    logError(
-      new AutoUpdaterError('Another process is currently installing an update'),
-    )
-    // Log the lock contention
-    logEvent('tengu_auto_updater_lock_contention', {
-      pid: process.pid,
-      currentVersion:
-        MACRO.VERSION as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-    })
-    return 'in_progress'
-  }
-
-  try {
-    await removeClaudeAliasesFromShellConfigs()
-    // Check if we're using npm from Windows path in WSL
-    if (!env.isRunningWithBun() && env.isNpmFromWindowsPath()) {
-      logError(new Error('Windows NPM detected in WSL environment'))
-      logEvent('tengu_auto_updater_windows_npm_in_wsl', {
-        currentVersion:
-          MACRO.VERSION as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      })
-      // biome-ignore lint/suspicious/noConsole:: intentional console output
-      console.error(`
-Error: Windows NPM detected in WSL
-
-You're running Claude Code in WSL but using the Windows NPM installation from /mnt/c/.
-This configuration is not supported for updates.
-
-To fix this issue:
-  1. Install Node.js within your Linux distribution: e.g. sudo apt install nodejs npm
-  2. Make sure Linux NPM is in your PATH before the Windows version
-  3. Try updating again with 'claude update'
-`)
-      return 'install_failed'
-    }
-
-    const { hasPermissions } = await checkGlobalInstallPermissions()
-    if (!hasPermissions) {
-      return 'no_permissions'
-    }
-
-    // Use specific version if provided, otherwise use latest
-    const packageSpec = specificVersion
-      ? `${MACRO.PACKAGE_URL}@${specificVersion}`
-      : MACRO.PACKAGE_URL
-
-    // Run from home directory to avoid reading project-level .npmrc/.bunfig.toml
-    // which could be maliciously crafted to redirect to an attacker's registry
-    const packageManager = env.isRunningWithBun() ? 'bun' : 'npm'
-    const installResult = await execFileNoThrowWithCwd(
-      packageManager,
-      ['install', '-g', packageSpec],
-      { cwd: homedir() },
-    )
-    if (installResult.code !== 0) {
-      const error = new AutoUpdaterError(
-        `Failed to install new version of claude: ${installResult.stdout} ${installResult.stderr}`,
-      )
-      logError(error)
-      return 'install_failed'
-    }
-
-    // Set installMethod to 'global' to track npm global installations
-    saveGlobalConfig(current => ({
-      ...current,
-      installMethod: 'global',
-    }))
-
-    return 'success'
-  } finally {
-    // Ensure we always release the lock
-    await releaseLock()
-  }
+  // mycli rebrand: `claude update` / `mycli update` used to run
+  // `npm install -g <package>` against the upstream claude-code package.
+  // We don't ship through that channel — updates are done by pulling this
+  // repo and re-linking (bun link).
+  logError(
+    new AutoUpdaterError(
+      'In-place update is not supported in mycli — update by pulling the repo and running `bun link`.',
+    ),
+  )
+  return 'install_failed'
 }
 
 /**

@@ -401,7 +401,7 @@ async function initializeBetaTracing(
 
   // Initialize event logger
   const eventLogger = logs.getLogger(
-    'com.anthropic.claude_code.events',
+    'com.mycli.events',
     MACRO.VERSION,
   )
   setEventLogger(eventLogger)
@@ -560,7 +560,7 @@ export async function initializeTelemetry() {
     }
     registerCleanup(shutdownTelemetry)
 
-    return meterProvider.getMeter('com.anthropic.claude_code', MACRO.VERSION)
+    return meterProvider.getMeter('com.mycli', MACRO.VERSION)
   }
 
   const meterProvider = new MeterProvider({
@@ -600,7 +600,7 @@ export async function initializeTelemetry() {
 
       // Initialize event logger
       const eventLogger = logs.getLogger(
-        'com.anthropic.claude_code.events',
+        'com.mycli.events',
         MACRO.VERSION,
       )
       setEventLogger(eventLogger)
@@ -697,7 +697,7 @@ Current timeout: ${timeoutMs}ms
   // Always register shutdown (internal metrics are always enabled)
   registerCleanup(shutdownTelemetry)
 
-  return meterProvider.getMeter('com.anthropic.claude_code', MACRO.VERSION)
+  return meterProvider.getMeter('com.mycli', MACRO.VERSION)
 }
 
 /**

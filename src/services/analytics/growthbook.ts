@@ -417,11 +417,17 @@ function syncRemoteEvalToDisk(): void {
 }
 
 /**
- * Check if GrowthBook operations should be enabled
+ * Check if GrowthBook operations should be enabled.
+ *
+ * mycli rebrand: hard-coded to false. Upstream GrowthBook fetches feature
+ * flags from api.anthropic.com to drive A/B tests, kill switches, and
+ * conditional UI for Anthropic's user base — none of which applies to a
+ * standalone fork. With this false, every `getFeatureValue_*` /
+ * `checkGate_*` / `checkStatsigFeatureGate_*` short-circuits to its caller's
+ * default value, no client is constructed, and no HTTP request is made.
  */
 function isGrowthBookEnabled(): boolean {
-  // GrowthBook depends on 1P event logging.
-  return is1PEventLoggingEnabled()
+  return false
 }
 
 /**

@@ -4959,7 +4959,13 @@ async function loadInitialMessages(
             }
           }
         }
-        restoreSessionStateFromLog(result, setAppState)
+        const todoRestoreAttachment = await restoreSessionStateFromLog(
+          result,
+          setAppState,
+        )
+        if (todoRestoreAttachment && result.messages) {
+          result.messages.push(todoRestoreAttachment)
+        }
 
         // Restore session metadata so it's re-appended on exit via reAppendSessionMetadata
         restoreSessionMetadata(
@@ -5159,7 +5165,13 @@ async function loadInitialMessages(
           await resetSessionFilePointer()
         }
       }
-      restoreSessionStateFromLog(result, setAppState)
+      const todoRestoreAttachment = await restoreSessionStateFromLog(
+        result,
+        setAppState,
+      )
+      if (todoRestoreAttachment && result.messages) {
+        result.messages.push(todoRestoreAttachment)
+      }
 
       // Restore session metadata so it's re-appended on exit via reAppendSessionMetadata
       restoreSessionMetadata(

@@ -36,51 +36,20 @@ const CHROME_EXTENSION_RECONNECT_URL = 'https://clau.de/chrome/reconnect'
 const NATIVE_HOST_IDENTIFIER = 'com.anthropic.claude_code_browser_extension'
 const NATIVE_HOST_MANIFEST_NAME = `${NATIVE_HOST_IDENTIFIER}.json`
 
-export function shouldEnableClaudeInChrome(chromeFlag?: boolean): boolean {
-  // Disable by default in non-interactive sessions (e.g., SDK, CI)
-  if (getIsNonInteractiveSession() && chromeFlag !== true) {
-    return false
-  }
-
-  // Check CLI flags
-  if (chromeFlag === true) {
-    return true
-  }
-  if (chromeFlag === false) {
-    return false
-  }
-
-  // Check environment variables
-  if (isEnvTruthy(process.env.CLAUDE_CODE_ENABLE_CFC)) {
-    return true
-  }
-  if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_ENABLE_CFC)) {
-    return false
-  }
-
-  // Check default config settings
-  const config = getGlobalConfig()
-  if (config.claudeInChromeDefaultEnabled !== undefined) {
-    return config.claudeInChromeDefaultEnabled
-  }
-
+export function shouldEnableClaudeInChrome(_chromeFlag?: boolean): boolean {
+  // mycli rebrand: hard-disabled. Upstream "Claude in Chrome" installs a
+  // native messaging host (~/Library/.../com.anthropic.claude_code_browser_extension.json),
+  // wrapper shell scripts, and Windows registry keys pointing at binaries
+  // that would talk to Anthropic's Chrome extension. We don't ship the
+  // matching extension and we don't want to register Anthropic-branded
+  // manifests on the user's system, so every caller of this gate short-
+  // circuits without touching disk or spawning the MCP server.
   return false
 }
 
-let shouldAutoEnable: boolean | undefined = undefined
-
 export function shouldAutoEnableClaudeInChrome(): boolean {
-  if (shouldAutoEnable !== undefined) {
-    return shouldAutoEnable
-  }
-
-  shouldAutoEnable =
-    getIsInteractive() &&
-    isChromeExtensionInstalled_CACHED_MAY_BE_STALE() &&
-    (process.env.USER_TYPE === 'ant' ||
-      getFeatureValue_CACHED_MAY_BE_STALE('tengu_chrome_auto_enable', false))
-
-  return shouldAutoEnable
+  // mycli rebrand: see shouldEnableClaudeInChrome above.
+  return false
 }
 
 /**

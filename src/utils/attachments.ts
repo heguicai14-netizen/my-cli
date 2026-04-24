@@ -489,6 +489,25 @@ export type Attachment =
       content: Task[]
       itemCount: number
     }
+  /**
+   * Post-compaction re-injection of the live task/todo list.
+   * The model only ever "sees" tasks via tool_use/tool_result replay, which
+   * compaction drops. State itself survives (V2 on disk, V1 in AppState),
+   * but the model forgets it exists until the turn-based reminder cadence
+   * elapses (~10 turns). This attachment closes that window.
+   */
+  | {
+      type: 'todo_restore'
+      source: 'v2'
+      tasks: Task[]
+      itemCount: number
+    }
+  | {
+      type: 'todo_restore'
+      source: 'v1'
+      todos: TodoList
+      itemCount: number
+    }
   | {
       type: 'nested_memory'
       path: string
