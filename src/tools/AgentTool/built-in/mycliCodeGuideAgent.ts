@@ -116,7 +116,9 @@ export const CLAUDE_CODE_GUIDE_AGENT: BuiltInAgentDefinition = {
       ],
   source: 'built-in',
   baseDir: 'built-in',
-  model: 'haiku',
+  // mycli rebrand: inherit main model. 'haiku' resolves to
+  // claude-haiku-4-5-20251001 which 3P gateways may not recognize.
+  model: 'inherit',
   permissionMode: 'dontAsk',
   getSystemPrompt({ toolUseContext }) {
     const commands = toolUseContext.options.commands

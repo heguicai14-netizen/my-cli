@@ -101,7 +101,10 @@ function getMagicDocsAgent(): BuiltInAgentDefinition {
     agentType: 'magic-docs',
     whenToUse: 'Update Magic Docs',
     tools: [FILE_EDIT_TOOL_NAME], // Only allow Edit
-    model: 'sonnet',
+    // mycli rebrand: inherit main model. 'sonnet' alias resolves to
+    // claude-sonnet-4-5-20250929 on 3P providers which gets sent to the
+    // user's gateway (Kimi / aigocode etc.) where it typically fails.
+    model: 'inherit',
     source: 'built-in',
     baseDir: 'built-in',
     getSystemPrompt: () => '', // Will use override systemPrompt

@@ -138,7 +138,12 @@ export const STATUSLINE_SETUP_AGENT: BuiltInAgentDefinition = {
   tools: ['Read', 'Edit'],
   source: 'built-in',
   baseDir: 'built-in',
-  model: 'sonnet',
+  // mycli rebrand: inherit main model instead of forcing 'sonnet'. The alias
+  // resolves to claude-sonnet-4-5-20250929 on 3P providers (see
+  // getDefaultSonnetModel), which gets sent to the user's gateway (Kimi /
+  // aigocode etc.) where that model id typically doesn't exist or routes to
+  // the wrong backend.
+  model: 'inherit',
   color: 'orange',
   getSystemPrompt: () => STATUSLINE_SYSTEM_PROMPT,
 }
