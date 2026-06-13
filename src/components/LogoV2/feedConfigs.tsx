@@ -96,7 +96,7 @@ export function createGuestPassesFeed(): FeedConfig {
     customContent: {
       content: <>
           <Box marginY={1}>
-            <Text color="claude">[✻] [✻] [✻]</Text>
+            <Text color="#4FE0E0">[✻] [✻] [✻]</Text>
           </Box>
           <Text dimColor>{subtitle}</Text>
         </>,
