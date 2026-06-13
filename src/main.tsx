@@ -2023,7 +2023,10 @@ async function run(): Promise<CommanderCommand> {
     // Special case the default model with the null keyword
     // NOTE: Model resolution happens after setup() to ensure trust is established before AWS auth
     const userSpecifiedModel = options.model === 'default' ? getDefaultMainLoopModel() : options.model;
-    const userSpecifiedFallbackModel = fallbackModel === 'default' ? getDefaultMainLoopModel() : fallbackModel;
+    // Fall back to settings.fallbackModel when --fallback-model isn't passed,
+    // mirroring how the `agent` setting backs the --agent flag below.
+    const resolvedFallbackModel = fallbackModel ?? getInitialSettings().fallbackModel;
+    const userSpecifiedFallbackModel = resolvedFallbackModel === 'default' ? getDefaultMainLoopModel() : resolvedFallbackModel;
 
     // Reuse preSetupCwd unless setup() chdir'd (worktreeEnabled). Saves a
     // getCwd() syscall in the common path.

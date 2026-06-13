@@ -6,7 +6,9 @@ import btw from './commands/btw/index.js'
 import goodClaude from './commands/good-mycli/index.js'
 import issue from './commands/issue/index.js'
 import feedback from './commands/feedback/index.js'
+import cd from './commands/cd/index.js'
 import clear from './commands/clear/index.js'
+import codeReview, { simplify } from './commands/code-review.js'
 import color from './commands/color/index.js'
 import commit from './commands/commit.js'
 import copy from './commands/copy/index.js'
@@ -134,6 +136,7 @@ import branch from './commands/branch/index.js'
 import agents from './commands/agents/index.js'
 import plugin from './commands/plugin/index.js'
 import reloadPlugins from './commands/reload-plugins/index.js'
+import reloadSkills from './commands/reload-skills/index.js'
 import rewind from './commands/rewind/index.js'
 import heapDump from './commands/heapdump/index.js'
 import mockLimits from './commands/mock-limits/index.js'
@@ -262,7 +265,10 @@ const COMMANDS = memoize((): Command[] => [
   branch,
   btw,
   chrome,
+  cd,
   clear,
+  codeReview,
+  simplify,
   color,
   compact,
   config,
@@ -295,6 +301,7 @@ const COMMANDS = memoize((): Command[] => [
   pr_comments,
   releaseNotes,
   reloadPlugins,
+  reloadSkills,
   rename,
   resume,
   session,
