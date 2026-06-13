@@ -315,6 +315,14 @@ export const SettingsSchema = lazySchema(() =>
           'Default model ID to send in API requests (e.g. "claude-sonnet-4-6", ' +
             '"gpt-4.1"). Overrideable per-session via --model.',
         ),
+      fallbackModel: z
+        .string()
+        .optional()
+        .describe(
+          'Model ID to automatically fall back to when the default model is ' +
+            'overloaded/unavailable. Persistent default for the --fallback-model ' +
+            'flag (the flag, when passed, takes precedence). Must differ from model.',
+        ),
       headers: z
         .record(z.string(), z.string())
         .optional()
