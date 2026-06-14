@@ -1,9 +1,7 @@
 import * as React from 'react'
-import { useEffect, useState } from 'react'
 // BaseText is the raw Ink Text — it accepts arbitrary hex backgroundColor, which
 // the half-block renderer needs to paint each cell's lower pixel.
 import { Box, BaseText as Text } from '../../ink.js'
-import { getInitialSettings } from '../../utils/settings/settings.js'
 
 export type ClawdPose =
   | 'default'
@@ -16,8 +14,12 @@ type Props = {
 }
 
 // A tiny robot pet. 8×8 pixel sprite rendered with half-block glyphs (▀ = two
-// stacked pixels via fg/bg color), so it's only 4 terminal rows. It bobs and
-// blinks (cyan eyes off) so it feels alive.
+// stacked pixels via fg/bg color), so it's only 4 terminal rows.
+//
+// Rendered STATICALLY — do NOT add an animation timer here. A per-frame
+// setState loop re-renders the whole live region ~7×/s forever; since this logo
+// anchors the top of Ink's managed region, every tick yanks the terminal
+// viewport back to the welcome screen and makes scrollback unusable.
 const PAL: Record<string, string | undefined> = {
   M: '#9AA7B0', // metal body
   m: '#C6D0D6', // light metal (highlight)
@@ -36,9 +38,6 @@ const ROBOT_OPEN = [
   '.MMMMMM.',
   '.x....x.',
 ]
-const ROBOT_BLINK = ROBOT_OPEN.with(3, 'MMMMMMMM')
-
-const FRAME_MS = 140
 const CHAR_ROWS = ROBOT_OPEN.length / 2 // 4
 
 type Cell = { ch: string; fg?: string; bg?: string }
@@ -79,25 +78,10 @@ function renderSprite(rows: string[]): React.ReactNode {
 }
 
 export function Clawd(_props: Props): React.ReactNode {
-  const [reducedMotion] = useState(
-    () => getInitialSettings().prefersReducedMotion ?? false,
-  )
-  const [i, setI] = useState(0)
-
-  useEffect(() => {
-    if (reducedMotion) return
-    const t = setTimeout(() => setI(v => (v + 1) % 600), FRAME_MS)
-    return () => clearTimeout(t)
-  }, [i, reducedMotion])
-
-  const hopUp = !reducedMotion && Math.floor(i / 4) % 6 === 0
-  const blink = !reducedMotion && i % 26 < 2
-  const sprite = blink ? ROBOT_BLINK : ROBOT_OPEN
-
   return (
     <Box height={CHAR_ROWS + 1} flexDirection="column" alignItems="center">
-      <Box marginTop={hopUp ? 0 : 1} flexShrink={0}>
-        {renderSprite(sprite)}
+      <Box marginTop={1} flexShrink={0}>
+        {renderSprite(ROBOT_OPEN)}
       </Box>
     </Box>
   )
